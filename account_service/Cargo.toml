@@ -1,0 +1,19 @@
+[package]
+name = "account_service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+object = { path = "../object" }
+tokio-postgres = "0.7.15"
+postgres-types = { version = "0.2.11", features = ["derive", "with-serde_json-1", "with-uuid-1", "with-chrono-0_4"] }
+uuid = {version = "1.18.1", features = ["serde", "v4"]}
+zeromq = "0.4.1"
+serde = {version = "1.0.228", features = ["derive"]}
+serde_json = "1.0.145"
+chrono = {version = "0.4.42", features = ["serde"]}
+tokio = {version = "1.48.0", features = ["full"]}
+anyhow = "1.0.100"
+bytes = "1.10.1"
+envy = "0.4.2"
+dotenvy = "0.15.7"

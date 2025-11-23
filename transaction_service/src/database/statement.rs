@@ -1,0 +1,61 @@
+use chrono::{DateTime, TimeZone, Utc};
+use object::interfaces::{statement::{Statement, StatementRequest}, transaction::TransactionType};
+use tokio_postgres::Client;
+use anyhow::Result;
+
+
+pub async fn get_statement_db(
+    client: &Client,
+    statement_request: StatementRequest
+) -> Result<Vec<Statement>> {
+    let db_response = match (statement_request.from_date, statement_request.to_date) {
+        (None, None) => {
+            let rows = client.query("SELECT * FROM transaction WHERE from_acc = $1 OR to_acc = $2 ORDER BY transaction_timestamp DESC LIMIT 10",
+            &[&statement_request.account_number, &statement_request.account_number]).await;
+            rows
+        },
+        (None, Some(to)) => {
+            let end   = Utc.from_utc_datetime(&to.succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap());
+            let rows = client.query("SELECT * FROM transaction WHERE (from_acc = $1 OR to_acc = $2) AND transaction_timestamp < $3",
+            &[&statement_request.account_number, &statement_request.account_number, &end]).await;
+            rows
+        },
+        (Some(from), None) => {
+            let start = Utc.from_utc_datetime(&from.and_hms_opt(0, 0, 0).unwrap());
+            let rows = client.query("SELECT * FROM transaction WHERE (from_acc = $1 OR to_acc = $2) AND transaction_timestamp >= $3",
+            &[&statement_request.account_number, &statement_request.account_number, &start]).await;
+            rows
+        },
+        (Some(from), Some(to)) => {
+            let start = Utc.from_utc_datetime(&from.and_hms_opt(0, 0, 0).unwrap());
+            let end   = Utc.from_utc_datetime(&to.succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap());
+            let rows = client.query("SELECT * FROM transaction WHERE (from_acc = $1 OR to_acc = $2) AND transaction_timestamp >= $3 transaction_timestamp < $4",
+            &[&statement_request.account_number, &statement_request.account_number, &start, &end]).await;
+            rows
+        },
+    };
+
+    if let Err(e) = db_response {
+        return Err(e.into())
+    }
+    
+    let statement = db_response.unwrap().into_iter().map(|row| {
+        let ts: DateTime<Utc> = row.get("transaction_timestamp");
+        let from_acc: Option<String> = row.get("from_acc");
+        let to_acc: Option<String> = row.get("to_acc");
+        let transaction_type = if let Some(from) = from_acc.clone() {
+            if from == statement_request.account_number { TransactionType::Debit }
+            else { TransactionType::Credit }
+        } else { TransactionType::Credit };
+
+        Statement {
+            date: ts.date_naive(),
+            from_account_number: from_acc.clone(),
+            to_account_number: to_acc.clone(),
+            transaction_type,
+        }
+
+    }).collect::<Vec<Statement>>();
+
+    Ok(statement)
+}
