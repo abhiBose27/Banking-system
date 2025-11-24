@@ -3,7 +3,9 @@ use uuid::Uuid;
 use tokio_postgres::{Client, NoTls, connect};
 
 use object::interfaces::{
-    dealer::Dealer, io::{DataKind, EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}, service_config::ServiceConfig
+    dealer::Dealer, 
+    io::{DataKind, EventMessage, EventType, Service}, 
+    ports::Ports::{self, ControllerRoute}, service_config::ServiceConfig
 };
 
 use crate::{handlers::{account::{create_account, update_balance}, customer::create_customer}, interfaces::dealer::DealerService};
@@ -19,7 +21,6 @@ impl DealerService {
             service_config.db_password,
             service_config.db_database
         );
-        //"host=localhost user=postgres password=Bose@abhiBose dbname=banking"
         let (client, connection) = match connect(&config_str, NoTls).await {
             Ok((client, connection)) => (client, connection),
             Err(e) => panic!("Error: Cannot connect to DB: {e}"),
