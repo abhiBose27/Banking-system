@@ -17,11 +17,20 @@ pub struct DepositTenure {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DepositAccount<'a> {
+pub struct DepositRequest {
+    pub linked_account_number: String,
+    pub principal_amount: f64,
+    pub deposit_tenure: DepositTenure,
+    pub interest_payout: InterestPayout,
+    pub auto_renewal: bool,
+    pub renewed_deposit_tenure: Option<DepositTenure>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Deposit<'a> {
     pub id: Uuid,
     pub customer_id: Uuid,
-    pub linked_account_id: Uuid,
-    pub deposit_account_number: &'a str,
+    pub linked_account_number: &'a str,
     pub principal_amount: f64,
     pub interest_rate: f64,
     pub deposit_tenure: DepositTenure,

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use uuid::Uuid;
 
-use crate::interfaces::{account::AccountRequest, customer::CustomerRequest, statement::{Statement, StatementRequest}, transaction::TransactionRequest};
+use crate::interfaces::{account::AccountRequest, customer::CustomerRequest, deposit::DepositRequest, statement::{Statement, StatementRequest}, transaction::TransactionRequest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMessage {
@@ -18,8 +18,8 @@ pub enum Service {
     Api,
     Account,
     Transaction,
-    Controller
-    //FixedDeposit
+    Controller,
+    Deposit
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,6 +42,7 @@ pub enum DataKind {
     CreateAccount { account_request: AccountRequest },
     CreateCustomer { customer_request: CustomerRequest },
     CreateTransaction { transaction_request: TransactionRequest },
+    CreateDeposit { deposit_request: DepositRequest },
     UpdateBalance { transaction_request: TransactionRequest },
     GetStatement { statement_request: StatementRequest },
     Statement { statement: Vec<Statement> },
