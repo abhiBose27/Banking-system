@@ -11,7 +11,7 @@ pub struct StatementRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Statement {
+pub struct StatementResponse {
     pub date: NaiveDate,
     pub from_account_number: Option<String>,
     pub to_account_number: Option<String>,

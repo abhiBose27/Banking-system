@@ -18,7 +18,7 @@ async fn create(
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CreateDeposit { deposit_request: api_obj.clone() }
+            data: DataKind::CreateDeposit{ deposit_request: api_obj.clone() }
         },
         from: Service::Api,
         to: Service::Deposit,
@@ -37,8 +37,8 @@ async fn create(
      match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id:_, executed, data, error_message } => {
-                    if !executed {
+                EventType::Response { id:_, success, data, error_message } => {
+                    if !success {
                         HttpResponse::BadRequest().body(error_message.unwrap())
                     }
                     else {

@@ -3,10 +3,9 @@ use tokio_postgres::Client;
 use uuid::Uuid;
 
 use object::interfaces::{
-    dealer::Dealer, io::{DataKind, EventMessage, EventType, Service}, transaction::{TransactionRequest, TransactionStatus}};
+    dealer::Dealer, io::{DataKind, EventMessage, EventType, Service}, transaction::{TransactionResponse, TransactionRequest, TransactionStatus}};
 
 use crate::database::transaction::make_transaction_db;
-
 
 // Ask account services 
 // if the transaction is valid
@@ -40,46 +39,16 @@ async fn is_valid_transaction(
         eprintln!("Error: Cannot send message: {:?}", transaction_request);
         return false;
     }
-    /* let payload = serde_json::to_vec(&transaction_request).unwrap();
-    if let Err(e) = dealer_socket.send(payload.into()).await {
-        eprintln!("Error: {e}");
-        return false;
-    } */
     if let Some(response_message) = dealer.recv_event(Some(request_id)).await {
         match response_message.data {
-            EventType::Response { id, executed, error_message:_, data:_ } => {
+            EventType::Response { id, success, error_message:_, data:_ } => {
                 assert_eq!(id, request_id);
-                return executed
+                return success
             },
             _ => panic!("Error: Invalid object")
         }
     }
     return false;
-    /* let is_valid = match timeout(Duration::from_secs(5), dealer_socket.recv()).await {
-        Ok(Ok(resp)) => {
-            let resp_clone = resp.clone();
-            let raw_message = resp_clone.get(0).unwrap();
-            let resp_event_message = serde_json::from_slice::<EventMessage>(raw_message).unwrap();
-            assert_eq!(resp_event_message.from, Service::Account);
-            assert_eq!(resp_event_message.to, Service::Transaction);
-            match resp_event_message.data {
-                EventType::Response { id, executed, error_message:_, data:_ } => {
-                    assert_eq!(id, request_id);
-                    executed
-                },
-                _ => panic!("Error: Invalid object")
-            }
-        }
-        Ok(Err(e)) => {
-            eprintln!("Error: {e}");
-            false
-        }
-        Err(e) => {
-            eprintln!("Error: {e}");
-            false
-        } 
-    };
-    is_valid */
 }
 
 pub async fn make_transaction(
@@ -87,20 +56,27 @@ pub async fn make_transaction(
     dealer: &mut Dealer,
     transaction_request: TransactionRequest, 
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let mut executed = false;
+    let mut success = false;
     let mut error_message = None;
     let mut data = None;
     let is_valid_transaction = is_valid_transaction(dealer, transaction_request.clone()).await;
     let transaction_status = if is_valid_transaction {TransactionStatus::Complete} else {TransactionStatus::Reject};
     match make_transaction_db(client, transaction_request.clone(), transaction_status).await {
-        Ok(reference_id) => {
-            executed = true;
-            data = Some(DataKind::Transaction { reference_id });
+        Ok(transaction) => {
+            success = true;
+            let transaction_api = TransactionResponse {
+                reference_id: transaction.reference_id,
+                from_account_number: transaction.from_account_number,
+                to_account_number: transaction.to_account_number,
+                transaction_status: transaction.transaction_status,
+                amount: transaction.amount,
+            };
+            data = Some(DataKind::CreateTransactionResponse { transaction: transaction_api.clone() });
         },
         Err(e) => {
             eprintln!("Error: {e}");
             error_message = Some("Error: Failed to make transaction".to_string());
         },
     }
-    (executed, data, error_message)
+    (success, data, error_message)
 }

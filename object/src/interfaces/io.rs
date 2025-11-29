@@ -1,9 +1,13 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use ulid::Ulid;
 use uuid::Uuid;
 
-use crate::interfaces::{account::AccountRequest, customer::CustomerRequest, deposit::DepositRequest, statement::{Statement, StatementRequest}, transaction::TransactionRequest};
+use crate::interfaces::{
+    account::{Account, AccountResponse, AccountRequest}, 
+    customer::{CustomerResponse, CustomerRequest}, 
+    deposit::{DepositResponse, DepositRequest}, statement::{StatementResponse, StatementRequest}, 
+    transaction::{TransactionResponse, TransactionRequest}
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMessage {
@@ -31,7 +35,7 @@ pub enum EventType {
     },
     Response {
         id: Uuid,
-        executed: bool,
+        success: bool,
         error_message: Option<String>,
         data: Option<DataKind>
     }
@@ -43,9 +47,17 @@ pub enum DataKind {
     CreateCustomer { customer_request: CustomerRequest },
     CreateTransaction { transaction_request: TransactionRequest },
     CreateDeposit { deposit_request: DepositRequest },
-    UpdateBalance { transaction_request: TransactionRequest },
     GetStatement { statement_request: StatementRequest },
-    Statement { statement: Vec<Statement> },
-    Account { account_number: String },
-    Transaction { reference_id: Ulid }
+
+    CreateAccountResponse { account: AccountResponse },
+    CreateCustomerResponse { customer: CustomerResponse },
+    CreateTransactionResponse { transaction: TransactionResponse },
+    CreateDepositResponse { deposit: DepositResponse },
+    GetStatementResponse { statement: Vec<StatementResponse> },
+
+    // Exclusive usage
+    GetAccount { account_number: String },
+    UpdateBalance { transaction_request: TransactionRequest },
+
+    GetAccountResponse { account: Account },
 }

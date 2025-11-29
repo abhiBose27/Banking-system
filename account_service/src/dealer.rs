@@ -8,7 +8,12 @@ use object::interfaces::{
     ports::Ports::{self, ControllerRoute}, service_config::ServiceConfig
 };
 
-use crate::{handlers::{account::{create_account, update_balance}, customer::create_customer}, interfaces::dealer::DealerService};
+use crate::{
+    handlers::{
+        account::{create_account, get_account, update_balance}, 
+        customer::create_customer
+    }, interfaces::dealer::DealerService
+};
 
 
 impl DealerService {
@@ -54,21 +59,26 @@ impl DealerService {
     }
 
     async fn resolve_request(client: &Client, data: DataKind, request_id: Uuid) -> EventType {
-        let (executed, data, error_message) = match data {
+        let (success, data, error_message) = match data {
             DataKind::CreateAccount { account_request } => {
                 create_account(client, account_request).await
             },
             DataKind::CreateCustomer { customer_request } => {
                 create_customer(client, customer_request).await
             },
+
+            // Exclusive IOs
             DataKind::UpdateBalance { transaction_request } => {
                 update_balance(client, transaction_request).await
+            },
+            DataKind::GetAccount { account_number } => {
+                get_account(client, account_number).await
             }
             _ => panic!("Error: Invalid request received {ControllerRoute}")
         };
         EventType::Response { 
             id: request_id, 
-            executed, 
+            success, 
             error_message, 
             data 
         }

@@ -72,7 +72,7 @@ impl DealerService {
 
                     Some(event_message) = dealer.recv_event(None) => {
                         println!("Received client response: {:?}", event_message.clone());
-                        if let EventType::Response { id, data: _, executed:_, error_message: _ } = event_message.data {
+                        if let EventType::Response { id, data: _, success:_, error_message: _ } = event_message.data {
                             let response_tx = id_to_response_tx.remove(&id).unwrap();
                             response_tx.send(event_message.data.clone()).unwrap();
                         }

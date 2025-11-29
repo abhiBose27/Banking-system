@@ -58,7 +58,7 @@ impl Dealer {
 
         // Find the message with that request_id
         let is_found= self.buffer_recv_messages.iter().position(|x| {
-            if let EventType::Response { id, executed:_, error_message:_, data:_ } = x.data {
+            if let EventType::Response { id, success:_, error_message:_, data:_ } = x.data {
                 if id == request_id.unwrap() {
                     return true;
                 }
@@ -76,7 +76,7 @@ impl Dealer {
                     let message_clone = message.clone();
                     let raw_message = message_clone.get(0).unwrap();
                     let event_message = serde_json::from_slice::<EventMessage>(raw_message).unwrap();
-                    if let EventType::Response { id, executed:_, error_message:_, data:_ } = event_message.data {
+                    if let EventType::Response { id, success:_, error_message:_, data:_ } = event_message.data {
                         if id == request_id.unwrap() {
                             return Some(event_message);
                         }

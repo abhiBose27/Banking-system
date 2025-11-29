@@ -39,7 +39,8 @@ impl Router {
         let mut services_to_register = vec![
             Service::Api, 
             Service::Account, 
-            Service::Transaction
+            Service::Transaction,
+            Service::Deposit
         ];
         println!("Services to register: {:?}", services_to_register);
         while !services_to_register.is_empty() {

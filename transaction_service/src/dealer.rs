@@ -49,7 +49,7 @@ impl DealerService {
     }
 
     async fn resolve_request(client: &Client, dealer: &mut Dealer, data: DataKind, request_id: Uuid) -> EventType {
-        let (executed, data, error_message) = match data {
+        let (success, data, error_message) = match data {
             DataKind::CreateTransaction { transaction_request } => {
                 make_transaction(&client, dealer, transaction_request).await
             },
@@ -60,7 +60,7 @@ impl DealerService {
         };
         EventType::Response { 
             id: request_id, 
-            executed, 
+            success, 
             error_message, 
             data 
         }

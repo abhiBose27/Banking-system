@@ -34,12 +34,14 @@ async fn create(
     match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id: _, executed, error_message, data:_ } => {
-                    if !executed {
+                EventType::Response { id: _, success, error_message, data } => {
+                    if !success {
                         HttpResponse::BadRequest().body(error_message.unwrap())
                     }
                     else {
-                        HttpResponse::Ok().body("Successfully created the customer")
+                        let data= data.unwrap();
+                        let body = serde_json::to_vec(&data).unwrap();
+                        HttpResponse::Ok().body(body)
                     }
                 },
                 _ => panic!("Error: Unknown object received on API: {:?}", response.clone())

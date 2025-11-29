@@ -36,8 +36,8 @@ async fn get(
     match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id:_, executed, error_message, data } => {
-                    if !executed {
+                EventType::Response { id:_, success, error_message, data } => {
+                    if !success {
                         HttpResponse::BadRequest().body(error_message.unwrap())
                     }
                     else {

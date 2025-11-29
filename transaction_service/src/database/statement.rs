@@ -1,13 +1,17 @@
-use chrono::{DateTime, TimeZone, Utc};
-use object::interfaces::{statement::{Statement, StatementRequest}, transaction::TransactionType};
 use tokio_postgres::Client;
 use anyhow::Result;
+use chrono::{DateTime, TimeZone, Utc};
+
+use object::interfaces::{
+    statement::{StatementResponse, StatementRequest}, 
+    transaction::TransactionType
+};
 
 
 pub async fn get_statement_db(
     client: &Client,
     statement_request: StatementRequest
-) -> Result<Vec<Statement>> {
+) -> Result<Vec<StatementResponse>> {
     let db_response = match (statement_request.from_date, statement_request.to_date) {
         (None, None) => {
             let rows = client.query("SELECT * FROM transaction WHERE from_acc = $1 OR to_acc = $2 ORDER BY transaction_timestamp DESC LIMIT 10",
@@ -48,14 +52,14 @@ pub async fn get_statement_db(
             else { TransactionType::Credit }
         } else { TransactionType::Credit };
 
-        Statement {
+        StatementResponse {
             date: ts.date_naive(),
             from_account_number: from_acc.clone(),
             to_account_number: to_acc.clone(),
             transaction_type,
         }
 
-    }).collect::<Vec<Statement>>();
+    }).collect::<Vec<StatementResponse>>();
 
     Ok(statement)
 }
