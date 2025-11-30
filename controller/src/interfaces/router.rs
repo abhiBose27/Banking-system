@@ -1,13 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 use bytes::Bytes;
-use object::interfaces::io::{EventMessage, Service};
-use tokio::sync::{Mutex, mpsc::{Receiver, Sender}};
+use tokio::sync::Mutex;
 use zeromq::RouterSocket;
 
+use object::interfaces::io::Service;
 
-pub struct Router {
+pub struct RouterService {
     pub service_to_identity: Arc<Mutex<HashMap<Service, Bytes>>>,
-    pub router_socket: Arc<Mutex<RouterSocket>>,
-    pub tx_queue: Arc<Mutex<Sender<EventMessage>>>,
-    pub rx_queue: Arc<Mutex<Receiver<EventMessage>>>
+    pub router: Arc<Mutex<RouterSocket>>,
 }
