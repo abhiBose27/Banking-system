@@ -13,6 +13,7 @@ pub struct StatementRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatementResponse {
     pub date: NaiveDate,
+    pub amount: f64,
     pub from_account_number: Option<String>,
     pub to_account_number: Option<String>,
     pub transaction_type: TransactionType,

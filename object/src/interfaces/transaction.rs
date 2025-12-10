@@ -9,7 +9,7 @@ pub enum TransactionType {
     Debit
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 
 pub enum TransactionStatus {
     Reject,
@@ -41,4 +41,5 @@ pub struct TransactionResponse {
     pub from_account_number: Option<String>,
     pub to_account_number: Option<String>,
     pub transaction_status: TransactionStatus,
+    pub transaction_timestamp: DateTime<Utc>
 }

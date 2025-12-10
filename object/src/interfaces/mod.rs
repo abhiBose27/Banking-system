@@ -7,3 +7,4 @@ pub mod io;
 pub mod statement;
 pub mod dealer;
 pub mod service_config;
+pub mod service_job;

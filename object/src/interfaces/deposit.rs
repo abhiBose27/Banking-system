@@ -2,12 +2,13 @@ use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum InterestPayout {
     Daily,
     Monthly,
     Quaterly,
-    Maturity
+    Maturity,
+    Renew
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,12 +44,13 @@ pub struct Deposit {
     pub interest_rate: f64,
     pub deposit_tenure: DepositTenure,
     pub interest_payout: InterestPayout,
+    pub nb_payouts: i64,
+    pub interest_amounts: Vec<f64>,
+    pub creation_timestamp: DateTime<Utc>,
+    pub next_interest_date: Option<NaiveDate>,
+    pub maturity_date: NaiveDate,
     pub auto_renewal: bool,
     pub renewed_deposit_tenure: Option<DepositTenure>,
-    pub creation_timestamp: DateTime<Utc>,
-    pub maturity_date: NaiveDate,
-    pub interest_cron: String,
-    pub maturity_cron: String
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,5 +63,6 @@ pub struct DepositResponse {
     pub interest_payout: InterestPayout,
     pub auto_renewal: bool,
     pub renewed_deposit_tenure: Option<DepositTenure>,
-    pub maturity_date: NaiveDate
+    pub maturity_date: NaiveDate,
+    pub creation_timestamp: DateTime<Utc>,
 }

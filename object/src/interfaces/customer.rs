@@ -38,4 +38,5 @@ pub struct CustomerResponse {
     pub age: i64,
     pub date_of_birth: NaiveDate,
     pub contact_number: String,
+    pub creation_timestamp: DateTime<Utc>
 }
