@@ -5,15 +5,15 @@ use actix_web::{http::header::HeaderName, middleware, web, App, HttpServer};
 use tokio::{select, sync::mpsc, task};
 
 use object::interfaces::{
-    dealer::Dealer, io::{EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}
+    dealer::Dealer, io::{EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}, service_job::ServiceJob
 };
 
-use crate::{handler, interfaces::dealer::{DealerService, ServiceJob}};
+use crate::{handler, interfaces::dealer::DealerService};
 
 
 impl DealerService {
     async fn connect(port: Ports) -> Dealer {
-        let dealer = Dealer::new(
+        let mut dealer = Dealer::new(
             "tcp://localhost".to_string(), 
             port,
         ).await;
@@ -34,13 +34,13 @@ impl DealerService {
 
     pub async fn new() -> Self {
         let dealer = Self::connect(ControllerRoute).await;
-        let (tx_controller, rx_controller) = mpsc::channel::<ServiceJob>(128);
-        let id_to_response_tx = HashMap::new();
+        let (tx_service, rx_service) = mpsc::channel::<ServiceJob>(128);
+        let id_to_tx_job = HashMap::new();
         Self {
             dealer,
-            tx_controller,
-            rx_controller,
-            id_to_response_tx
+            tx_service,
+            rx_service,
+            id_to_tx_job
         }
     }
 
@@ -53,16 +53,16 @@ impl DealerService {
     #[actix_web::main]
     async fn http_server(self) -> std::io::Result<()> {
         task::spawn(async move {
-            let mut rx_controller = self.rx_controller;
+            let mut rx_controller = self.rx_service;
             let mut dealer = self.dealer;
-            let mut id_to_response_tx = self.id_to_response_tx;
+            let mut id_to_response_tx = self.id_to_tx_job;
             loop {
                 select! {
                     Some(request_job) = rx_controller.recv() => {
                         let event_message = request_job.data.clone();
-                        let response_tx = request_job.response_tx;
+                        let tx_job = request_job.tx_job;
                         if let EventType::Request { id, data:_ } = event_message.data {
-                            id_to_response_tx.insert(id, response_tx);
+                            id_to_response_tx.insert(id, tx_job.unwrap());
                             println!("Sending request: {:?}", event_message);
                             if !dealer.send_event(event_message.clone()).await {
                                 eprintln!("Error: Cant send message {:?}", event_message);
@@ -70,7 +70,7 @@ impl DealerService {
                         }
                     }
 
-                    Some(event_message) = dealer.recv_event(None) => {
+                    Some(event_message) = dealer.recv_event() => {
                         println!("Received client response: {:?}", event_message.clone());
                         if let EventType::Response { id, data: _, success:_, error_message: _ } = event_message.data {
                             let response_tx = id_to_response_tx.remove(&id).unwrap();
@@ -133,7 +133,7 @@ impl DealerService {
             let x_total = HeaderName::from_lowercase(b"x-total").unwrap();
             let cors = Cors::permissive().expose_headers([x_total]);
             App::new()
-                .app_data(web::Data::new(self.tx_controller.clone()))
+                .app_data(web::Data::new(self.tx_service.clone()))
                 .wrap(cors)
                 .wrap(middleware::DefaultHeaders::new().add(("X-Version", "0.1")))
                 .wrap(middleware::Compress::default())

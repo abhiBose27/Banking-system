@@ -1,19 +1,17 @@
 use std::time::Duration;
 use actix_web::{HttpResponse, Responder, get, web};
 use chrono::Utc;
-use object::interfaces::{io::{DataKind, EventMessage, EventType, Service}, statement::StatementRequest};
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
-use crate::interfaces::dealer::ServiceJob;
-
+use object::interfaces::{io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob, statement::StatementRequest};
 
 #[get("/statement")]
 async fn get(
     tx: web::Data<Sender<ServiceJob>>,
     api_obj: web::Json<StatementRequest>
 ) -> impl Responder {
-    let (response_tx, response_rx) = oneshot::channel::<EventType>();
+    let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
@@ -25,7 +23,7 @@ async fn get(
     };
     let service_job = ServiceJob { 
         data: event_message,
-        response_tx
+        tx_job: Some(tx_job)
     };
 
     if let Err(e) = tx.send(service_job).await {
@@ -33,7 +31,7 @@ async fn get(
         return HttpResponse::InternalServerError().finish();
     }
 
-    match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
+    match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
                 EventType::Response { id:_, success, error_message, data } => {
@@ -45,7 +43,6 @@ async fn get(
                         let body = serde_json::to_vec(&data).unwrap();
                         HttpResponse::Ok().body(body)
                     }
-
                 }
                 _ => panic!("Error: Unknown object received on API: {:?}", response.clone())
             }

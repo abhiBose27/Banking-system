@@ -1,11 +1,10 @@
+use uuid::Uuid;
 use std::time::Duration;
 use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use actix_web::{post, web, HttpResponse, Responder};
-use object::interfaces::{customer::CustomerRequest, io::{DataKind, EventMessage, EventType, Service}};
-use uuid::Uuid;
 
-use crate::interfaces::dealer::ServiceJob;
+use object::interfaces::{customer::CustomerRequest, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob};
 
 
 #[post("/customer")]
@@ -13,7 +12,7 @@ async fn create(
     tx: web::Data<Sender<ServiceJob>>, 
     api_obj: web::Json<CustomerRequest>
 ) -> impl Responder {
-    let (response_tx, response_rx) = oneshot::channel::<EventType>();
+    let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
@@ -25,13 +24,13 @@ async fn create(
     };
     let service_job = ServiceJob { 
         data: event_message,
-        response_tx
+        tx_job: Some(tx_job)
     };
     if let Err(e) = tx.send(service_job).await {
         eprintln!("Failed to send job: {e}");
         return HttpResponse::InternalServerError().finish();
     }
-    match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
+    match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
                 EventType::Response { id: _, success, error_message, data } => {

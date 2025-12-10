@@ -1,20 +1,17 @@
 use std::time::Duration;
-
 use actix_web::{HttpResponse, Responder, post, web};
 use chrono::Utc;
-use object::interfaces::{deposit::DepositRequest, io::{DataKind, EventMessage, EventType, Service}};
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
-use crate::interfaces::dealer::ServiceJob;
-
+use object::interfaces::{deposit::DepositRequest, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob};
 
 #[post("/deposit")]
 async fn create(
     tx: web::Data<Sender<ServiceJob>>,
     api_obj: web::Json<DepositRequest>
 ) -> impl Responder {
-    let (response_tx, response_rx) = oneshot::channel::<EventType>();
+    let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
@@ -26,7 +23,7 @@ async fn create(
     };
     let service_job = ServiceJob { 
         data: event_message,
-        response_tx
+        tx_job: Some(tx_job)
     };
 
     if let Err(e) = tx.send(service_job).await {
@@ -34,7 +31,7 @@ async fn create(
         return HttpResponse::InternalServerError().finish();
     }
 
-     match tokio::time::timeout(Duration::from_secs(5), response_rx).await {
+     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
                 EventType::Response { id:_, success, data, error_message } => {
