@@ -47,6 +47,7 @@ pub async fn get_statement_db(
         let ts: DateTime<Utc> = row.get("transaction_timestamp");
         let from_acc: Option<String> = row.get("from_acc");
         let to_acc: Option<String> = row.get("to_acc");
+        let amount = row.get("amount");
         let transaction_type = if let Some(from) = from_acc.clone() {
             if from == statement_request.account_number { TransactionType::Debit }
             else { TransactionType::Credit }
@@ -57,6 +58,7 @@ pub async fn get_statement_db(
             from_account_number: from_acc.clone(),
             to_account_number: to_acc.clone(),
             transaction_type,
+            amount,
         }
 
     }).collect::<Vec<StatementResponse>>();

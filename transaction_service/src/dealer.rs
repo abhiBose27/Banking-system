@@ -1,10 +1,18 @@
+use std::{collections::HashMap, sync::Arc};
 use chrono::Utc;
+use tokio::{select, sync::mpsc::{self, Sender}};
 use uuid::Uuid;
 use tokio_postgres::{Client, NoTls, connect};
 
-use object::interfaces::{dealer::Dealer, io::{DataKind, EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}, service_config::ServiceConfig};
+use object::interfaces::{
+    dealer::Dealer, 
+    io::{DataKind, EventMessage, EventType, Service}, 
+    ports::Ports::{self, ControllerRoute}, 
+    service_config::ServiceConfig, service_job::ServiceJob
+};
 
 use crate::{handlers::{statement::get_statement, transaction::make_transaction}, interfaces::dealer::DealerService};
+
 
 impl DealerService {
 
@@ -29,7 +37,7 @@ impl DealerService {
     }
 
     async fn connect(port: Ports) -> Dealer {
-        let dealer = Dealer::new(
+        let mut dealer = Dealer::new(
             "tcp://localhost".to_string(), 
             port,
         ).await;
@@ -48,10 +56,10 @@ impl DealerService {
         dealer
     }
 
-    async fn resolve_request(client: &Client, dealer: &mut Dealer, data: DataKind, request_id: Uuid) -> EventType {
+    async fn resolve_request(client: &Client, tx_dealer: &Sender<ServiceJob>, data: DataKind, request_id: Uuid) -> EventType {
         let (success, data, error_message) = match data {
             DataKind::CreateTransaction { transaction_request } => {
-                make_transaction(&client, dealer, transaction_request).await
+                make_transaction(&client, tx_dealer, transaction_request).await
             },
             DataKind::GetStatement { statement_request } => {
                 get_statement(&client, statement_request).await
@@ -69,50 +77,88 @@ impl DealerService {
     pub async fn new(service_config: ServiceConfig) -> Self {
         let client = Self::connect_to_db(service_config).await;
         let dealer = Self::connect(ControllerRoute).await;
+        let id_to_tx_job = HashMap::new();
+        let (tx_incoming, rx_incoming) = mpsc::channel::<ServiceJob>(128);
+        let (tx_outgoing, rx_outgoing) = mpsc::channel::<ServiceJob>(128);
+
         Self {
             dealer,
-            client
+            client: Arc::new(client),
+            id_to_tx_job,
+            tx_incoming,
+            rx_incoming,
+            tx_outgoing,
+            rx_outgoing
         }
     }
 
     pub async fn worker(self) -> anyhow::Result<()> {
         println!("Starting Transaction Service");
         let mut dealer = self.dealer;
+        let mut id_to_tx_job = self.id_to_tx_job;
+        let mut rx_outgoing = self.rx_outgoing;
+        let mut rx_incoming = self.rx_incoming;
+        let tx_outgoing = self.tx_outgoing;
+        let tx_incoming = self.tx_incoming;
         let client = self.client;
-        loop {
-            if let Some(event_message) = dealer.recv_event(None).await {
-                println!("Received request: {:?}", event_message);
-                if let EventType::Request { id, data } = event_message.data {
-                   let response_message = EventMessage {
-                        data: Self::resolve_request(&client, &mut dealer, data, id).await,
-                        from: event_message.to,
-                        to: event_message.from,
-                        timestamp: Utc::now()
-                    };
-                    let is_sent = dealer.send_event(response_message.clone()).await;
-                    if !is_sent {
-                        eprintln!("Error: Cant send response {:?}", response_message)
+
+        tokio::spawn(async move {
+            loop {
+                select! {
+                    Some(message) = rx_incoming.recv() => {
+                        // Process incoming request
+                        let event_message = message.data;
+                        println!("Received request: {:?}", event_message);
+                        if let EventType::Request { id, data } = event_message.data {
+                            let response_message = EventMessage {
+                                data: Self::resolve_request(&client, &tx_outgoing, data, id).await,
+                                from: event_message.to,
+                                to: event_message.from,
+                                timestamp: Utc::now()
+                            };
+                            let service_job = ServiceJob { tx_job: None, data: response_message };
+                            tx_outgoing.send(service_job).await.unwrap();
+                        }
                     }
                 }
             }
-            /* if let Ok(message) = dealer_socket_clone.recv().await {
-                let message_clone = message.clone();
-                let raw_message = message_clone.get(0).unwrap();
-                let event_message = serde_json::from_slice::<EventMessage>(raw_message).unwrap();
-                println!("Received request: {:?}", event_message);
-                if let EventType::Request { id, data } = event_message.data {
-                    let response_message = EventMessage {
-                        data: Self::resolve_request(&client, &mut dealer_socket_clone, data, id).await,
-                        from: event_message.to,
-                        to: event_message.from,
-                        timestamp: Utc::now()
-                    };
-                    let payload = serde_json::to_vec(&response_message).unwrap();
-                    if let Err(e) = dealer_socket_clone.send(payload.into()).await {
-                        eprintln!("Error: Cant send response {:?}: {e}", response_message)
+        });
+
+
+        loop {
+            select! {
+                Some(message) = rx_outgoing.recv() => {
+                    // Handle response and request messages
+                    // from this service
+                    let event_message = message.data;
+                    if let EventType::Request { id, data:_ } = event_message.data {
+                        let tx_job = message.tx_job;
+                        id_to_tx_job.insert(id, tx_job.unwrap());
+                    }
+                    let is_sent = dealer.send_event(event_message.clone()).await;
+                    if !is_sent {
+                        eprintln!("Error: Cant send message {:?}", event_message)
                     }
                 }
-            } */
+
+                Some(message) = dealer.recv_event() => {
+                    match message.data {
+                        EventType::Request { id:_, data:_ } => {
+                            let service_job = ServiceJob { 
+                                tx_job: None, 
+                                data: message.clone() 
+                            };
+                            tx_incoming.send(service_job).await.unwrap();
+                            
+                        },
+                        EventType::Response { id, success:_, error_message:_, data:_ } => {
+                            let tx_job = id_to_tx_job.remove(&id).unwrap();
+                            tx_job.send(message.data.clone()).unwrap();
+                        },
+                        _ => eprintln!("Error: Invalid message received")
+                    }
+                }
+            }
         }
     }
 }
