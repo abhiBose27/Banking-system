@@ -20,6 +20,7 @@ pub async fn create_customer(client: &Client, customer_request: CustomerRequest)
                 age: customer.age,
                 date_of_birth: customer.date_of_birth,
                 contact_number: customer.contact_number,
+                creation_timestamp: customer.creation_timestamp,
             };
             data = Some(DataKind::CreateCustomerResponse { customer: customer_api.clone() })
         },

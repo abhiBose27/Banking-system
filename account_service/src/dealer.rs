@@ -39,7 +39,7 @@ impl DealerService {
     }
 
     async fn connect(port: Ports) -> Dealer {
-        let dealer = Dealer::new(
+        let mut dealer = Dealer::new(
             "tcp://localhost".to_string(), 
             port
         ).await;
@@ -98,7 +98,7 @@ impl DealerService {
         let mut dealer = self.dealer;
         let client = self.client;
         loop {
-            if let Some(event_message) = dealer.recv_event(None).await {
+            if let Some(event_message) = dealer.recv_event().await {
                 println!("Received request: {:?}", event_message);
                 if let EventType::Request { id, data } = event_message.data {
                     let response_message = EventMessage {
@@ -114,24 +114,6 @@ impl DealerService {
                 }
 
             }
-           /*  if let Ok(message) = dealer_socket_clone.recv().await {
-                let message_clone = message.clone();
-                let raw_message = message_clone.get(0).unwrap();
-                let event_message = serde_json::from_slice::<EventMessage>(raw_message).unwrap();
-                println!("Received request: {:?}", event_message);
-                if let EventType::Request { id, data } = event_message.data {
-                    let response_message = EventMessage {
-                        data: Self::resolve_request(&client, data, id).await,
-                        from: event_message.to,
-                        to: event_message.from,
-                        timestamp: Utc::now()
-                    };
-                    let payload = serde_json::to_vec(&response_message).unwrap();
-                    if let Err(e) = dealer_socket_clone.send(payload.into()).await {
-                        eprintln!("Error: Cant send response {:?}: {e}", response_message)
-                    }
-                }
-            } */
         }
     }
 }

@@ -105,7 +105,7 @@ impl RouterService {
                     let to_service = event_message.clone().to;
                     let service_id = service_to_identity.get(&to_service).unwrap();
                     let zmq_message = Self::prepare_payload(event_message.clone(), service_id.clone());
-                    println!("Routing message to id: {:?}", service_id.clone());
+                    println!("Routing message to id: {:?}", to_service);
                     
                     if let Err(e) = router.send(zmq_message).await {
                         eprintln!("Error: Cant send response {:?}: {e}", event_message)

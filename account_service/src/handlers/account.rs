@@ -36,6 +36,7 @@ pub async fn create_account(client: &Client, account_request: AccountRequest) ->
             let account_api = AccountResponse {
                 account_number: account.account_number,
                 balance: account.balance,
+                creation_timestamp: account.creation_timestamp,
             };
             data = Some(DataKind::CreateAccountResponse { account: account_api.clone() });
         },
