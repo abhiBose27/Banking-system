@@ -115,6 +115,42 @@ pub async fn close_deposit(
     Ok(())
 }
 
+pub async fn get_deposit(
+    client: &Client,
+    deposit_number: String
+) -> Result<Deposit> {
+    let row_result = client.query_one(
+        "SELECT * FROM deposit_account WHERE deposit_number = $1", 
+        &[&deposit_number]
+    ).await;
+    if let Err(e) = row_result {
+        return Err(e.into());
+    }
+    let row = row_result.unwrap();
+    let deposit = Deposit {
+        id: row.get("id"),
+        status: serde_json::from_str(row.get("status")).unwrap(),
+        customer_id: row.get("customer_id"),
+        deposit_number,
+        linked_account_number: row.get("linked_account_number"),
+        principal_amount: row.get("principal_amount"),
+        interest_rate: row.get("interest_rate"),
+        deposit_tenure: serde_json::from_value(row.get("deposit_tenure")).unwrap(),
+        interest_payout: serde_json::from_str(row.get("interest_payout")).unwrap(),
+        nb_payouts: row.get("nb_payouts"),
+        interest_amounts: row.get("interest_amounts"),
+        creation_timestamp: row.get("creation_timestamp"),
+        next_interest_date: row.get("next_interest_date"),
+        maturity_date: row.get("maturity_date"),
+        auto_renewal: row.get("auto_renewal"),
+        renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
+            Ok(v) => Some(v),
+            Err(_) => None,
+        },
+    };  
+    Ok(deposit)
+}
+
 pub async fn update_interest_date(
     client: &Client, 
     deposit_id: Uuid,

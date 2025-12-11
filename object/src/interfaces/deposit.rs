@@ -34,6 +34,11 @@ pub struct DepositRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DepositClose {
+    pub deposit_number: String
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Deposit {
     pub id: Uuid,
     pub status: DepositStatus,

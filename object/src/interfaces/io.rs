@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::interfaces::{
-    account::{Account, AccountResponse, AccountRequest}, 
-    customer::{CustomerResponse, CustomerRequest}, 
-    deposit::{DepositResponse, DepositRequest}, statement::{StatementResponse, StatementRequest}, 
-    transaction::{TransactionResponse, TransactionRequest}
+    account::{Account, AccountRequest, AccountResponse}, 
+    customer::{CustomerRequest, CustomerResponse}, 
+    deposit::{DepositClose, DepositRequest, DepositResponse}, statement::{StatementRequest, StatementResponse}, 
+    transaction::{TransactionRequest, TransactionResponse}
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,12 +47,14 @@ pub enum DataKind {
     CreateCustomer { customer_request: CustomerRequest },
     CreateTransaction { transaction_request: TransactionRequest },
     CreateDeposit { deposit_request: DepositRequest },
+    CloseDeposit { deposit_close: DepositClose },
     GetStatement { statement_request: StatementRequest },
 
     CreateAccountResponse { account: AccountResponse },
     CreateCustomerResponse { customer: CustomerResponse },
     CreateTransactionResponse { transaction: TransactionResponse },
     CreateDepositResponse { deposit: DepositResponse },
+    CloseDepositResponse,
     GetStatementResponse { statement: Vec<StatementResponse> },
 
     // Exclusive usage

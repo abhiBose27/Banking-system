@@ -142,6 +142,7 @@ impl DealerService {
                 .service(handler::customer::create)
                 .service(handler::transaction::create)
                 .service(handler::deposit::create)
+                .service(handler::deposit::delete)
                 .service(handler::statement::get)
         })
         .bind(("0.0.0.0", 3003))?

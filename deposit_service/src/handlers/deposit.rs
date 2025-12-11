@@ -5,13 +5,13 @@ use tokio_postgres::Client;
 use uuid::Uuid;
 
 use object::interfaces::{
-    account::Account, deposit::{DepositRequest, DepositResponse, DepositTenure, InterestPayout}, 
+    account::Account, deposit::{DepositClose, DepositRequest, DepositResponse, DepositTenure, InterestPayout}, 
     io::{DataKind, EventMessage, EventType, Service}, 
     service_job::ServiceJob, 
     transaction::{TransactionRequest, TransactionResponse, TransactionStatus}
 };
 
-use crate::database::deposit::add_deposit;
+use crate::database::deposit::{add_deposit, close_deposit as close_deposit_db, get_deposit};
 
 fn is_valid_interest_payout(interest_payout: InterestPayout, deposit_tenure: Option<DepositTenure>) -> bool {
     match deposit_tenure {
@@ -119,6 +119,61 @@ pub async fn make_transaction(
         Err(e) => eprintln!("Error: {e}"),
     };
     result
+}
+
+pub async fn close_deposit(
+    client: &Client,
+    tx_dealer: &Sender<ServiceJob>,
+    deposit_close: DepositClose
+) -> (bool, Option<DataKind>, Option<String>) {
+    let mut success = false;
+    let mut data = None;
+    let mut error_message = None;
+    let deposit_result = get_deposit(client, deposit_close.deposit_number.clone()).await;
+    if let Err(e) = deposit_result {
+        eprintln!("Error: {e}");
+        return (success, data, Some("Error: Invalid deposit_number".to_string()));
+    }
+    let mut paid_interest = 0.0;
+    let deposit = deposit_result.unwrap();
+
+    let current_date = Utc::now().date_naive();
+    let creation_date = deposit.creation_timestamp.date_naive();
+    let days_spanned = (current_date - creation_date).num_days();
+
+    let premature_interest = deposit.principal_amount * (days_spanned as f64) * (deposit.interest_rate / 100.0) / 365.0;
+    for i in 0..deposit.nb_payouts {
+        paid_interest += deposit.interest_amounts[i as usize];
+    }
+
+    let difference = premature_interest - paid_interest;
+    let total_to_pay = deposit.principal_amount + difference;
+
+    let transaction_request = TransactionRequest {
+        amount: total_to_pay,
+        from_account_number: None,
+        to_account_number: Some(deposit.linked_account_number.clone())
+    };
+    let transaction_response = make_transaction(tx_dealer, transaction_request).await;
+    if let None = transaction_response {
+        return (success, data, Some("Error: Unable to make transaction".to_string()));
+    }
+    let transaction = transaction_response.unwrap();
+    if transaction.transaction_status == TransactionStatus::Reject {
+        return (success, data, Some("Error: Unable to make transaction".to_string()));
+    }
+
+    match close_deposit_db(client, deposit.id).await {
+        Ok(_) => {
+            success = true;
+            data = Some(DataKind::CloseDepositResponse);
+        },
+        Err(e) => {
+            eprintln!("Error: {e}");
+            error_message = Some("Error: Failed to close deposit".to_string());
+        },
+    };
+    (success, data, error_message)
 }
 
 pub async fn create_deposit(

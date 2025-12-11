@@ -11,7 +11,11 @@ use object::interfaces::{
     ports::Ports::{self, ControllerRoute}, service_config::ServiceConfig, service_job::ServiceJob
 };
 
-use crate::{handlers::{deposit::create_deposit, interest::process_interests, maturity::process_maturity}, interfaces::dealer::DealerService};
+use crate::{
+    handlers::{deposit::{close_deposit, create_deposit}, 
+    interest::process_interests, maturity::process_maturity}, 
+    interfaces::dealer::DealerService
+};
 
 
 impl DealerService {
@@ -59,6 +63,9 @@ impl DealerService {
         let (success, data, error_message) = match data {
             DataKind::CreateDeposit { deposit_request } => {
                 create_deposit(client, tx_dealer, deposit_request).await
+            },
+            DataKind::CloseDeposit { deposit_close } => {
+                close_deposit(client, tx_dealer, deposit_close).await
             }
             _  => panic!("Error: Invalid request received {ControllerRoute}")
         };
