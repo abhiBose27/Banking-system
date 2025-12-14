@@ -18,9 +18,6 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         
         // Calculate the new amount
         if deposit.interest_payout == InterestPayout::Renew {
-            /* let interest_amounts = deposit.interest_amounts.clone();
-            let nb_payouts = deposit.nb_payouts as usize;
-            amount += interest_amounts[nb_payouts] + deposit.principal_amount;  */
             let interest_amount_str = deposit.interest_amount_to_frequency
             .iter()
             .max_by_key(|(_, v)| *v)
@@ -56,7 +53,6 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         // If its auto renewable
         // Create a new deposit with the new amount
         if deposit.auto_renewal {
-
             // Renewed deposit request
             let new_deposit_request = DepositRequest {
                 linked_account_number: deposit.linked_account_number,

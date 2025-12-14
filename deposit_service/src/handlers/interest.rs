@@ -16,8 +16,6 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
         if deposit.interest_payout == InterestPayout::Renew {
             continue;
         }
-        //let interest_amounts = deposit.interest_amounts.clone();
-        //let nb_payouts = deposit.nb_payouts as usize;
         let interest_amount_str = deposit.interest_amount_to_frequency
         .iter()
         .max_by_key(|(_, v)| *v)

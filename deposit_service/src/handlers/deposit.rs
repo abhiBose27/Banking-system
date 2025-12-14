@@ -143,9 +143,6 @@ pub async fn close_deposit(
 
     let premature_interest = deposit.principal_amount * (days_spanned as f64) * (deposit.interest_rate / 100.0) / 365.0;
     let paid_interest = deposit.total_interest_paid;
-    /* for i in 0..deposit.nb_payouts {
-        paid_interest += deposit.interest_amounts[i as usize];
-    } */
 
     let difference = premature_interest - paid_interest;
     let total_to_pay = deposit.principal_amount + difference;

@@ -154,12 +154,12 @@ pub async fn get_deposit(
         next_interest_date: row.get("next_interest_date"),
         maturity_date: row.get("maturity_date"),
         auto_renewal: row.get("auto_renewal"),
+        interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
+        total_interest_paid: row.get("total_interest_paid"),
         renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
             Ok(v) => Some(v),
             Err(_) => None,
-        },
-        interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
-        total_interest_paid: row.get("total_interest_paid"),
+        }
     };  
     Ok(deposit)
 }
@@ -264,9 +264,6 @@ pub async fn add_deposit(client: &Client, deposit_request: DepositRequest, custo
         &serde_json::to_string(&deposit.interest_payout).unwrap(),
         &serde_json::to_value(&deposit.interest_amount_to_frequency).unwrap(),
         &deposit.total_interest_paid,
-        //&deposit.nb_payouts,
-        //&deposit.interest_amounts,
-
         &deposit.auto_renewal,
         &serde_json::to_value(&deposit.renewed_deposit_tenure).unwrap(),
         &deposit.creation_timestamp,

@@ -28,17 +28,17 @@ pub async fn get_deposit_for_maturity(client: &Client) -> Result<Vec<Deposit>> {
             deposit_tenure: serde_json::from_value(row.get("deposit_tenure")).unwrap(),
             interest_payout: serde_json::from_str(row.get("interest_payout")).unwrap(),
             auto_renewal: row.get("auto_renewal"),
-            renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
-                Ok(v) => Some(v),
-                Err(_) => None,
-            },
             creation_timestamp: row.get("creation_timestamp"),
             next_interest_date: row.get("next_interest_date"),
             maturity_date: row.get("maturity_date"),
             //interest_amounts: row.get("interest_amounts"),
             //nb_payouts: row.get("nb_payouts"),
             interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
-            total_interest_paid: row.get("total_interest_paid")
+            total_interest_paid: row.get("total_interest_paid"),
+            renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
+                Ok(v) => Some(v),
+                Err(_) => None,
+            }
         }
     }).collect::<Vec<Deposit>>();
     Ok(deposits)
