@@ -8,7 +8,7 @@ use object::interfaces::{
     dealer::Dealer, io::{EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}, service_job::ServiceJob
 };
 
-use crate::{handler, interfaces::dealer::DealerService};
+use crate::{authentication::auth::internal_auth, handler, interfaces::dealer::DealerService};
 
 
 impl DealerService {
@@ -79,54 +79,6 @@ impl DealerService {
                     }
                 }
             }
-            /* loop {
-                select! {
-                    // Messages from api endpoints.
-                    // Distribute to controller
-                    Some(message) = rx_controller.recv() => {
-                        let event_message = message.data.clone();
-                        println!("Sending client request: {:?}", event_message);
-                        match event_message.data {
-                            EventType::ClientRequest { id, data: _} => {
-                                id_to_response_tx.insert(id, message.response_tx);
-                                let payload = serde_json::to_vec(&event_message).unwrap();
-                                if let Err(e) = controller_socket_clone.send(payload.into()).await {
-                                    eprintln!("Error: Cannot send request {:?}: {}", event_message, e);
-                                }
-                            },
-                            _ => eprintln!("Error: Invalid data to send {:?}", event_message)
-                        }
-                    }
-
-                    // Received response from controller
-                    Ok(message) = controller_socket_clone.recv() => {
-                        let message_clone = message.clone();
-                        let raw_message = message_clone.get(0).unwrap();
-                        let event_message = serde_json::from_slice::<EventMessage>(raw_message).unwrap();
-                        println!("Received client response: {:?}", event_message);
-                        match event_message.data {
-                            EventType::ClientResponse { id, data:_, response_msg } => {
-                                let response_tx = id_to_response_tx.remove(&id).unwrap();
-                                response_tx.send(response_msg.clone()).unwrap();
-                            },
-                            _ => eprintln!("Error: Invalid response message {:?}", event_message)
-                        }
-                    }
-
-                    // Ping
-                    _ = sleep(Duration::from_secs(5)) => {
-                        let event_message = EventMessage { 
-                            data: EventType::Ping, 
-                            timestamp: Utc::now()
-                        };
-                        let payload = serde_json::to_vec(&event_message).unwrap();
-                        if let Err(e) = controller_socket_clone.send(payload.into()).await {
-                            eprintln!("Error: Cannot send PING messages: {}", e);
-                            controller_socket_clone = Self::connect(APIRoute).await;
-                        }
-                    }
-                }
-            } */
         });
 
         HttpServer::new(move || {
@@ -137,6 +89,7 @@ impl DealerService {
                 .wrap(cors)
                 .wrap(middleware::DefaultHeaders::new().add(("X-Version", "0.1")))
                 .wrap(middleware::Compress::default())
+                .wrap(middleware::from_fn(internal_auth))
                 .route("/", web::get().to(handler::handshake::handshake_handler))
                 .service(handler::account::create)
                 .service(handler::customer::create)

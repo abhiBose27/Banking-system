@@ -10,6 +10,8 @@ object = { path = "../object" }
 anyhow = "1.0.100"
 actix-cors = "0.7.1"
 zeromq = "0.4.1"
+envy = "0.4.2"
+dotenvy = "0.15.7"
 serde = {version = "1.0.228", features = ["derive"]}
 serde_json = "1.0.145"
 chrono = {version = "0.4.42", features = ["serde"]}
