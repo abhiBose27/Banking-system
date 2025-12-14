@@ -6,24 +6,25 @@ This system powers key banking operations such as customer management, account m
 ## 🧱 Architecture
 
 ```
-                        ┌──────────────────────────┐
+                        ┌────────────────────────── ┐
                         │         API Service       │
-                        │ (Actix — external entry) │
+                        │ (Actix — external entry)  │
                         └──────────────┬────────────┘
                                        │ HTTP
                                        ▼
                         ┌──────────────────────────┐
                         │     Controller Service   │
-                        │   (ZeroMQ Router/Dealer) │
-                        │ Routes all internal msgs │
-                        └───────┬─────────┬────────┘
-                                │         │  
-                                ▼         ▼
+                        │   (ZeroMQ Router/Dealer) │ ◄ ── ─ ┌──────────────────────────┐
+                        │ Routes all internal msgs |        |       Deposit Serivce    |
+                        └───────┬─────────┬────────┘        │  • Open / Close Deposit  │
+                                │         │                 |  • Interest Accrual      |
+                                ▼         ▼                 │  • Maturity Handling     │
+                                                            └──────────────────────────┘
        ┌──────────────────────────┐   ┌─────────────────────────┐
-       │     Account Service       │   │   Transaction Service    │
-       │  • Add Customer           │   │  • Create Transaction    │
-       │  • Create Account         │   │  • Store Transaction     │
-       │  • Update Balance         │   │  • Generate Statements   │
+       │     Account Service      │   │   Transaction Service   │
+       │  • Add Customer          │   │  • Create Transaction   │
+       │  • Create Account        │   │  • Store Transaction    │
+       │  • Update Balance        │   │  • Generate Statements  │
        └──────────────────────────┘   └─────────────────────────┘
 ```
 
