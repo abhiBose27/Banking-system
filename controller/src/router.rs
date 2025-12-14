@@ -84,7 +84,7 @@ impl RouterService {
             loop {
                 if let Ok(message) = router.recv().await {
                     let (sender_id, event_message) = Self::fetch_socket_message(message);
-                    println!("Received {:?}", event_message);
+                    println!("Received message from {:?}", event_message.from);
                     
                     let service_to_identity = self.service_to_identity.lock().await;
                     let is_service_from_registered = service_to_identity.get(&event_message.from);
@@ -105,7 +105,7 @@ impl RouterService {
                     let to_service = event_message.clone().to;
                     let service_id = service_to_identity.get(&to_service).unwrap();
                     let zmq_message = Self::prepare_payload(event_message.clone(), service_id.clone());
-                    println!("Routing message to id: {:?}", to_service);
+                    println!("Routing message to {:?}", to_service);
                     
                     if let Err(e) = router.send(zmq_message).await {
                         eprintln!("Error: Cant send response {:?}: {e}", event_message)
