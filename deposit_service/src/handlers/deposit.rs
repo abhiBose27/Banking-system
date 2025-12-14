@@ -134,7 +134,7 @@ pub async fn close_deposit(
         eprintln!("Error: {e}");
         return (success, data, Some("Error: Invalid deposit_number".to_string()));
     }
-    let mut paid_interest = 0.0;
+    //let mut paid_interest = 0.0;
     let deposit = deposit_result.unwrap();
 
     let current_date = Utc::now().date_naive();
@@ -142,9 +142,10 @@ pub async fn close_deposit(
     let days_spanned = (current_date - creation_date).num_days();
 
     let premature_interest = deposit.principal_amount * (days_spanned as f64) * (deposit.interest_rate / 100.0) / 365.0;
-    for i in 0..deposit.nb_payouts {
+    let paid_interest = deposit.total_interest_paid;
+    /* for i in 0..deposit.nb_payouts {
         paid_interest += deposit.interest_amounts[i as usize];
-    }
+    } */
 
     let difference = premature_interest - paid_interest;
     let total_to_pay = deposit.principal_amount + difference;

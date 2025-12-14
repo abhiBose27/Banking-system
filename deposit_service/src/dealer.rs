@@ -110,7 +110,7 @@ impl DealerService {
         
         tokio::spawn(async move {
             let job_scheduler = JobScheduler::new().await.unwrap();
-            let interest_job = Job::new_async("0 55 1 ? * *", {
+            let interest_job = Job::new_async("0 0 1 ? * *", {
                 move |uuid, mut lock| {
                     let client = client2.clone();
                     let tx_outgoing = tx_outgoing2.clone();
@@ -126,7 +126,7 @@ impl DealerService {
                 }
             }).unwrap();
 
-            let maturity_job = Job::new_async("0 59 1 ? * *", { 
+            let maturity_job = Job::new_async("0 5 1 ? * *", { 
                 move |uuid, mut lock| {
                     let client = client3.clone();
                     let tx_outgoing = tx_outgoing3.clone();

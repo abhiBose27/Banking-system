@@ -18,9 +18,16 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         
         // Calculate the new amount
         if deposit.interest_payout == InterestPayout::Renew {
-            let interest_amounts = deposit.interest_amounts.clone();
+            /* let interest_amounts = deposit.interest_amounts.clone();
             let nb_payouts = deposit.nb_payouts as usize;
-            amount += interest_amounts[nb_payouts] + deposit.principal_amount; 
+            amount += interest_amounts[nb_payouts] + deposit.principal_amount;  */
+            let interest_amount_str = deposit.interest_amount_to_frequency
+            .iter()
+            .max_by_key(|(_, v)| *v)
+            .map(|(k, _)| k.clone()).unwrap();
+
+            let interest_amount = interest_amount_str.parse::<f64>().unwrap();
+            amount += interest_amount + deposit.principal_amount;
         }
         else {
             amount += deposit.principal_amount;
@@ -49,21 +56,8 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         // If its auto renewable
         // Create a new deposit with the new amount
         if deposit.auto_renewal {
-            let transaction_request_debit = TransactionRequest {
-                amount,
-                from_account_number: Some(deposit.linked_account_number.clone()),
-                to_account_number: None
-            };
-            let transaction_response_debit = make_transaction(tx_dealer, transaction_request_debit).await;
-            if let None = transaction_response_debit {
-                eprintln!("Error: Unable to debit principal amount {} to {}", amount, deposit.linked_account_number);
-                continue;
-            }
-            let transaction = transaction_response_debit.unwrap();
-            if transaction.transaction_status == TransactionStatus::Reject {
-                eprintln!("Error: Unable to debit principal amount {} to {}", amount, deposit.linked_account_number);
-                continue;
-            }
+
+            // Renewed deposit request
             let new_deposit_request = DepositRequest {
                 linked_account_number: deposit.linked_account_number,
                 principal_amount: amount,
@@ -72,6 +66,24 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
                 auto_renewal: deposit.auto_renewal,
                 renewed_deposit_tenure: deposit.renewed_deposit_tenure,
             };
+
+            let transaction_request_debit = TransactionRequest {
+                amount,
+                from_account_number: Some(new_deposit_request.linked_account_number.clone()),
+                to_account_number: None
+            };
+            let transaction_response_debit = make_transaction(tx_dealer, transaction_request_debit).await;
+            if let None = transaction_response_debit {
+                eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
+                continue;
+            }
+            let transaction = transaction_response_debit.unwrap();
+            if transaction.transaction_status == TransactionStatus::Reject {
+                eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
+                continue;
+            }
+
+            // Add deposit to DB
             let new_deposit = add_deposit(client, new_deposit_request, deposit.customer_id).await.unwrap();
             let deposit_response = DepositResponse {
                 deposit_number: new_deposit.deposit_number,

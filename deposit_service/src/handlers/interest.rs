@@ -5,7 +5,7 @@ use tokio_postgres::Client;
 use object::interfaces::{deposit::InterestPayout, service_job::ServiceJob, transaction::{TransactionRequest, TransactionStatus}};
 
 use crate::{database::{
-    deposit::{get_next_interest_timestamp, update_interest_date}, 
+    deposit::{get_next_interest_timestamp, update_deposit}, 
     interest::get_deposit_for_interest}, 
     handlers::deposit::make_transaction
 };
@@ -16,10 +16,16 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
         if deposit.interest_payout == InterestPayout::Renew {
             continue;
         }
-        let interest_amounts = deposit.interest_amounts.clone();
-        let nb_payouts = deposit.nb_payouts as usize;
+        //let interest_amounts = deposit.interest_amounts.clone();
+        //let nb_payouts = deposit.nb_payouts as usize;
+        let interest_amount_str = deposit.interest_amount_to_frequency
+        .iter()
+        .max_by_key(|(_, v)| *v)
+        .map(|(k, _)| k.clone()).unwrap();
+
+        let interest_amount = interest_amount_str.parse::<f64>().unwrap();
         let transaction_request = TransactionRequest {
-            amount: interest_amounts[nb_payouts],
+            amount: interest_amount,
             from_account_number: None,
             to_account_number: Some(deposit.linked_account_number.clone()),
         };
@@ -33,6 +39,7 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             eprintln!("Error: Unable to process interest for {} to {}", deposit.deposit_number, deposit.linked_account_number);
             continue;
         }
+        let interest_paid = deposit.total_interest_paid + interest_amount;
         let interest_date = deposit.next_interest_date.unwrap();
         let maturity_date = deposit.maturity_date;
         let interest_timestamp = Utc.from_utc_datetime(&interest_date.and_hms_opt(0, 0, 0).unwrap());
@@ -42,8 +49,8 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             maturity_timestamp, 
             deposit.interest_payout.clone()
         );
-        let new_nb_payouts = (nb_payouts + 1) as i64;
-        update_interest_date(client, deposit.id, new_nb_payouts, next_interest_timestamp).await.unwrap();
+        //let new_nb_payouts = (nb_payouts + 1) as i64;
+        update_deposit(client, deposit.id, interest_amount, interest_paid, next_interest_timestamp).await.unwrap();
         println!("Interest Paid for deposit: {:?}", deposit);
     }
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -49,8 +51,10 @@ pub struct Deposit {
     pub interest_rate: f64,
     pub deposit_tenure: DepositTenure,
     pub interest_payout: InterestPayout,
-    pub nb_payouts: i64,
-    pub interest_amounts: Vec<f64>,
+    pub interest_amount_to_frequency: HashMap<String, usize>,
+    pub total_interest_paid: f64,
+    //pub nb_payouts: i64,
+    //pub interest_amounts: Vec<f64>,
     pub creation_timestamp: DateTime<Utc>,
     pub next_interest_date: Option<NaiveDate>,
     pub maturity_date: NaiveDate,
