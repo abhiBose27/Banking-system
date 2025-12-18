@@ -6,6 +6,7 @@ pub mod dealer;
 pub mod interfaces;
 pub mod database;
 pub mod handlers;
+pub mod requests;
 
 
 #[tokio::main]

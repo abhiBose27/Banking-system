@@ -2,12 +2,12 @@ use chrono::{TimeZone, Utc};
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
-use object::interfaces::{deposit::InterestPayout, service_job::ServiceJob, transaction::{TransactionRequest, TransactionStatus}};
+use object::interfaces::{deposit::InterestPayout, service_job::ServiceJob, transaction::{TransactionRequest}};
 
 use crate::{database::{
     deposit::{get_next_interest_timestamp, update_deposit}, 
     interest::get_deposit_for_interest}, 
-    handlers::deposit::make_transaction
+    requests::transaction::make_transaction
 };
 
 pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) {
@@ -32,11 +32,7 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             eprintln!("Error: Unable to process interest for {} to {}", deposit.deposit_number, deposit.linked_account_number);
             continue;
         }
-        let transaction = transaction_response.unwrap();
-        if transaction.transaction_status == TransactionStatus::Reject {
-            eprintln!("Error: Unable to process interest for {} to {}", deposit.deposit_number, deposit.linked_account_number);
-            continue;
-        }
+
         let interest_paid = deposit.total_interest_paid + interest_amount;
         let interest_date = deposit.next_interest_date.unwrap();
         let maturity_date = deposit.maturity_date;
@@ -47,7 +43,6 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             maturity_timestamp, 
             deposit.interest_payout.clone()
         );
-        //let new_nb_payouts = (nb_payouts + 1) as i64;
         update_deposit(client, deposit.id, interest_amount, interest_paid, next_interest_timestamp).await.unwrap();
         println!("Interest Paid for deposit: {:?}", deposit);
     }

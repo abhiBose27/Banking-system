@@ -6,6 +6,7 @@ use object::interfaces::{
     statement::{StatementResponse, StatementRequest}, 
     transaction::TransactionType
 };
+use ulid::Ulid;
 
 
 pub async fn get_statement_db(
@@ -48,6 +49,7 @@ pub async fn get_statement_db(
         let from_acc: Option<String> = row.get("from_acc");
         let to_acc: Option<String> = row.get("to_acc");
         let amount = row.get("amount");
+        let reference_id_str = row.get("reference_id");
         let transaction_type = if let Some(from) = from_acc.clone() {
             if from == statement_request.account_number { TransactionType::Debit }
             else { TransactionType::Credit }
@@ -57,6 +59,7 @@ pub async fn get_statement_db(
             date: ts.date_naive(),
             from_account_number: from_acc.clone(),
             to_account_number: to_acc.clone(),
+            reference_id: Ulid::from_string(reference_id_str).unwrap(),
             transaction_type,
             amount,
         }

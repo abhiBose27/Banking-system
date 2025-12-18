@@ -6,6 +6,7 @@ pub mod database;
 pub mod interfaces;
 pub mod dealer;
 pub mod handlers;
+pub mod requests;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

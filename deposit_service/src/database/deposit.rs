@@ -148,8 +148,6 @@ pub async fn get_deposit(
         interest_rate: row.get("interest_rate"),
         deposit_tenure: serde_json::from_value(row.get("deposit_tenure")).unwrap(),
         interest_payout: serde_json::from_str(row.get("interest_payout")).unwrap(),
-        //nb_payouts: row.get("nb_payouts"),
-        //interest_amounts: row.get("interest_amounts"),
         creation_timestamp: row.get("creation_timestamp"),
         next_interest_date: row.get("next_interest_date"),
         maturity_date: row.get("maturity_date"),
@@ -185,8 +183,8 @@ pub async fn update_deposit(
             "UPDATE deposit_account
             SET interest_amount_to_frequency = jsonb_set(
                 interest_amount_to_frequency,
-                '{$1}',
-                to_jsonb((interest_amount_to_frequency->>'$1')::int - 1),
+                ARRAY[$1]::text[],
+                to_jsonb((interest_amount_to_frequency->>$1)::int - 1),
                 true
             )
             WHERE id = $2", 
@@ -198,7 +196,7 @@ pub async fn update_deposit(
     Ok(())
 }
 
-pub async fn add_deposit(client: &Client, deposit_request: DepositRequest, customer_id: Uuid) -> Result<Deposit> {
+pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: DepositRequest) -> Result<Deposit> {
     let interest_rate = 5.6;
     let deposit_tenure = deposit_request.deposit_tenure;
     let renewed_deposit_tenure = deposit_request.renewed_deposit_tenure;
@@ -230,8 +228,6 @@ pub async fn add_deposit(client: &Client, deposit_request: DepositRequest, custo
         total_interest_paid: 0.0,
         next_interest_date: next_interest_timestamp.map(|d| d.date_naive()),
         maturity_date: maturity_timestamp.date_naive(),
-        //interest_amounts: interest_amounts,
-        //nb_payouts: 0,
     };
 
     let result = client.execute("INSERT INTO deposit_account (

@@ -1,3 +1,4 @@
+use serde_json::Value;
 use tokio_postgres::Client;
 use anyhow::Result;
 
@@ -17,6 +18,7 @@ pub async fn get_deposit_for_maturity(client: &Client) -> Result<Vec<Deposit>> {
     }
     let rows = result.unwrap();
     let deposits = rows.into_iter().map(|row| {
+        let renewed_deposit_tenure_value: Option<Value> = row.get("renewed_deposit_tenure");
         Deposit {
             id: row.get("id"),
             status: serde_json::from_str(row.get("status")).unwrap(),
@@ -31,13 +33,11 @@ pub async fn get_deposit_for_maturity(client: &Client) -> Result<Vec<Deposit>> {
             creation_timestamp: row.get("creation_timestamp"),
             next_interest_date: row.get("next_interest_date"),
             maturity_date: row.get("maturity_date"),
-            //interest_amounts: row.get("interest_amounts"),
-            //nb_payouts: row.get("nb_payouts"),
             interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
             total_interest_paid: row.get("total_interest_paid"),
-            renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
-                Ok(v) => Some(v),
-                Err(_) => None,
+            renewed_deposit_tenure: match renewed_deposit_tenure_value {
+                Some(value) => serde_json::from_value(value).unwrap(),
+                None => None
             }
         }
     }).collect::<Vec<Deposit>>();

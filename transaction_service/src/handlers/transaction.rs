@@ -1,89 +1,61 @@
-use std::time::Duration;
-use chrono::Utc;
-use tokio::sync::{mpsc::Sender, oneshot};
+use tokio::sync::{mpsc::Sender};
 use tokio_postgres::Client;
-use uuid::Uuid;
 
 use object::interfaces::{
-    io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob, transaction::{TransactionRequest, TransactionResponse, TransactionStatus}};
+    io::DataKind, 
+    service_job::ServiceJob, 
+    transaction::{TransactionRequest, TransactionResponse}};
 
-use crate::database::transaction::make_transaction_db;
-
-// Ask account services 
-// if the transaction is valid
-async fn is_valid_transaction(
-    tx_dealer: &Sender<ServiceJob>,
-    transaction_request: TransactionRequest, 
-) -> bool {
-    let from_acc = transaction_request.clone().from_account_number;
-    let to_acc = transaction_request.clone().to_account_number;
-    if let (None, None) = (from_acc, to_acc) {
-        return false
-    }
-
-    let (tx_job, rx_job) = oneshot::channel::<EventType>();
-    let request_id = Uuid::new_v4();
-    let update_balance_request = EventMessage {
-        data: EventType::Request { 
-            id: request_id, 
-            data: DataKind::UpdateBalance {
-                transaction_request: transaction_request.clone()
-            },
-        },
-        from: Service::Transaction,
-        to: Service::Account,
-        timestamp: Utc::now(),
-    };
-
-    let service_job = ServiceJob {
-        tx_job: Some(tx_job),
-        data: update_balance_request
-    };
-
-    tx_dealer.send(service_job).await.unwrap();
-
-    match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
-        Ok(Ok(response_message)) => {
-            match response_message {
-                EventType::Response { id:_, success, error_message:_, data:_ } => success,
-                _ => panic!("Error: Invalid message")
-            }
-        },
-        Ok(Err(e)) => panic!("Error: {e}"),
-        Err(e) => {
-            eprintln!("Error: {e}");
-            false
-        },
-    }
-}
+use crate::{
+    database::transaction::make_transaction as make_transaction_db, 
+    requests::{account::get_account, balance::update_balance}
+};
 
 pub async fn make_transaction(
     client: &Client, 
     tx_dealer: &Sender<ServiceJob>,
     transaction_request: TransactionRequest, 
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let mut success = false;
-    let mut error_message = None;
-    let mut data = None;
-    let is_valid_transaction = is_valid_transaction(tx_dealer, transaction_request.clone()).await;
-    let transaction_status = if is_valid_transaction {TransactionStatus::Complete} else {TransactionStatus::Reject};
-    match make_transaction_db(client, transaction_request.clone(), transaction_status).await {
+    if let Some(account_number) = transaction_request.from_account_number.clone() {
+        let account_result = get_account(tx_dealer, account_number.clone()).await;
+        if let None = account_result {
+            return (false, None, Some("Error: Cannot fetch account details".to_string()));
+        }
+        let account = account_result.unwrap();
+        let new_balance = account.balance - transaction_request.amount;
+        if new_balance < 0.0 {
+            return (false, None, Some("Error: Insufficient Balance".to_string()));
+        }
+        if !update_balance(tx_dealer, account_number.clone(), new_balance).await {
+            return (false, None, Some("Error: Cannot make transaction".to_string()));
+        }
+    }
+    if let Some(account_number) = transaction_request.to_account_number.clone() {
+        let account_result = get_account(tx_dealer, account_number.clone()).await;
+        if let None = account_result {
+            return (false, None, Some("Error: Invalid credentials".to_string()));
+        }
+        let account = account_result.unwrap();
+        let new_balance = account.balance + transaction_request.amount;
+        if !update_balance(tx_dealer, account_number.clone(), new_balance).await {
+            return (false, None, Some("Error: Cannot make transaction".to_string()));
+        }
+    }
+    match make_transaction_db(client, transaction_request.clone()).await {
         Ok(transaction) => {
-            success = true;
             let transaction_api = TransactionResponse {
                 reference_id: transaction.reference_id,
                 from_account_number: transaction.from_account_number,
                 to_account_number: transaction.to_account_number,
-                transaction_status: transaction.transaction_status,
                 amount: transaction.amount,
                 transaction_timestamp: transaction.transaction_timestamp,
             };
-            data = Some(DataKind::CreateTransactionResponse { transaction: transaction_api.clone() });
-        },
+            let data = Some(DataKind::CreateTransactionResponse { transaction: transaction_api.clone() });
+            (true, data, None)
+        }
         Err(e) => {
             eprintln!("Error: {e}");
-            error_message = Some("Error: Failed to make transaction".to_string());
-        },
+            (false, None, Some("Error: Failed to record the transaction".to_string()))
+        }
     }
-    (success, data, error_message)
 }

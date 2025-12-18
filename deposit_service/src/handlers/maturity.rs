@@ -1,14 +1,13 @@
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
-use object::interfaces::{deposit::{DepositRequest, DepositResponse, InterestPayout}, service_job::ServiceJob, transaction::{TransactionRequest, TransactionStatus}};
+use object::interfaces::{deposit::{DepositRequest, DepositResponse, InterestPayout}, service_job::ServiceJob, transaction::{TransactionRequest}};
 
 use crate::{
     database::{
         deposit::{add_deposit, close_deposit}, 
         maturity::get_deposit_for_maturity}, 
-        handlers::deposit::{make_transaction
-        }
+        requests::transaction::make_transaction
     };
 
 pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
@@ -41,12 +40,6 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
             eprintln!("Error: Unable to credit principal amount {} to {}", amount, deposit.linked_account_number);
             continue;
         }
-        let transaction = transaction_response.unwrap();
-        if transaction.transaction_status == TransactionStatus::Reject {
-            eprintln!("Error: Unable to credit principal amount {} to {}", amount, deposit.linked_account_number);
-            continue;
-        }
-
         // Close the current deposit
         close_deposit(client, deposit.id).await.unwrap();
 
@@ -62,7 +55,6 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
                 auto_renewal: deposit.auto_renewal,
                 renewed_deposit_tenure: deposit.renewed_deposit_tenure,
             };
-
             let transaction_request_debit = TransactionRequest {
                 amount,
                 from_account_number: Some(new_deposit_request.linked_account_number.clone()),
@@ -73,14 +65,9 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
                 eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
                 continue;
             }
-            let transaction = transaction_response_debit.unwrap();
-            if transaction.transaction_status == TransactionStatus::Reject {
-                eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
-                continue;
-            }
 
             // Add deposit to DB
-            let new_deposit = add_deposit(client, new_deposit_request, deposit.customer_id).await.unwrap();
+            let new_deposit = add_deposit(client, deposit.customer_id, new_deposit_request).await.unwrap();
             let deposit_response = DepositResponse {
                 deposit_number: new_deposit.deposit_number,
                 linked_account_number: new_deposit.linked_account_number,
