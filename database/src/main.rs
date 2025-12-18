@@ -73,7 +73,6 @@ async fn main() -> Result<(), Error> {
                     reference_id TEXT NOT NULL UNIQUE,
                     from_acc TEXT,
                     to_acc TEXT,
-                    transaction_status TEXT NOT NULL,
                     transaction_timestamp TIMESTAMPTZ NOT NULL
                 );"
             ).await.unwrap();
