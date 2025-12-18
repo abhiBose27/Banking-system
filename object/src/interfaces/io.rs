@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::interfaces::{
     account::{Account, AccountRequest, AccountResponse}, 
-    customer::{CustomerRequest, CustomerResponse}, 
+    customer::{Customer, CustomerRequest, CustomerResponse}, 
     deposit::{DepositClose, DepositRequest, DepositResponse}, statement::{StatementRequest, StatementResponse}, 
     transaction::{TransactionRequest, TransactionResponse}
 };
@@ -59,7 +59,9 @@ pub enum DataKind {
 
     // Exclusive usage
     GetAccount { account_number: String },
-    UpdateBalance { transaction_request: TransactionRequest },
+    GetCustomer { first_name: String, last_name: String },
+    UpdateBalance { account_number: String, balance: f64 },
 
     GetAccountResponse { account: Account },
+    GetCustomerResponse { customer: Customer }
 }

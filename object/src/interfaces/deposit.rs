@@ -37,6 +37,8 @@ pub struct DepositRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepositClose {
+    pub first_name: String,
+    pub last_name: String,
     pub deposit_number: String
 }
 
@@ -53,8 +55,6 @@ pub struct Deposit {
     pub interest_payout: InterestPayout,
     pub interest_amount_to_frequency: HashMap<String, usize>,
     pub total_interest_paid: f64,
-    //pub nb_payouts: i64,
-    //pub interest_amounts: Vec<f64>,
     pub creation_timestamp: DateTime<Utc>,
     pub next_interest_date: Option<NaiveDate>,
     pub maturity_date: NaiveDate,

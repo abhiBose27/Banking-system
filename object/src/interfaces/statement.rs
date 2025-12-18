@@ -1,5 +1,6 @@
 use serde::{Serialize, Deserialize};
 use chrono::NaiveDate;
+use ulid::Ulid;
 
 use crate::interfaces::transaction::TransactionType;
 
@@ -14,6 +15,7 @@ pub struct StatementRequest {
 pub struct StatementResponse {
     pub date: NaiveDate,
     pub amount: f64,
+    pub reference_id: Ulid,
     pub from_account_number: Option<String>,
     pub to_account_number: Option<String>,
     pub transaction_type: TransactionType,
