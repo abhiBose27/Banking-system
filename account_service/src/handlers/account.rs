@@ -2,7 +2,7 @@ use tokio_postgres::Client;
 
 use object::interfaces::{
     account::{AccountResponse, AccountRequest}, 
-    io::DataKind, transaction::TransactionRequest
+    io::DataKind
 };
 
 use crate::database::{
@@ -65,15 +65,14 @@ pub async fn get_account(client: &Client, account_number: String) -> (bool, Opti
     (success, data, error_message)
 }
 
-pub async fn update_balance(client: &Client, transaction_request: TransactionRequest) -> (bool, Option<DataKind>, Option<String>) {
-    let mut success = false;
-    let mut error_message = None;
-    match update_balance_db(client, transaction_request).await {
-        Ok(_) => success = true,
+pub async fn update_balance(client: &Client, account_number: String, balance: f64) -> (bool, Option<DataKind>, Option<String>) {
+    match update_balance_db(client, balance, account_number).await {
+        Ok(_) => {
+            (true, None, None)
+        },
         Err(e) => {
             eprintln!("Error: {e}");
-            error_message = Some("Error: Failed to update balance".to_string());
+            (false, None, Some("Error: Cannot update balance".to_string()))
         },
     }
-    (success, None, error_message)
 }

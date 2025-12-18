@@ -68,9 +68,9 @@ impl DealerService {
             },
 
             // Exclusive IOs
-            DataKind::UpdateBalance { transaction_request } => {
-                update_balance(client, transaction_request).await
-            },
+            DataKind::UpdateBalance { account_number, balance } => {
+                update_balance(client, account_number, balance).await
+            }
             DataKind::GetAccount { account_number } => {
                 get_account(client, account_number).await
             }

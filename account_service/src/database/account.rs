@@ -1,9 +1,9 @@
 use chrono::Utc;
 use tokio_postgres::{Client};
 use uuid::Uuid;
-use anyhow::{Error, Result};
+use anyhow::Result;
 
-use object::interfaces::{account::Account, transaction::TransactionRequest};
+use object::interfaces::account::Account;
 
 
 fn generate_account_number() -> String {
@@ -57,46 +57,16 @@ pub async fn get_account(client: &Client, account_number: String) -> Result<Acco
     Ok(account)
 }
 
-pub async fn update_balance(client: &Client, transaction_request: TransactionRequest) -> Result<()> {
-    let from_account = transaction_request.from_account_number;
-    let to_account = transaction_request.to_account_number;
-    let amount = transaction_request.amount;
-    if let Some(account_number) = from_account {
-        let row_result = client
-        .query_one("SELECT balance FROM account WHERE account_number = $1", 
-        &[&account_number]).await;
-        if let Err(e) = row_result {
-            return Err(e.into());
-        }
-        let row = row_result?;
-        let balance: f64 = row.get("balance");
-        let new_balance = balance - amount;
-        if new_balance < 0.0 {
-            return Err(Error::msg("Insufficient balance"));
-        }
-        let result = client
-            .execute("UPDATE account SET balance = $1 WHERE account_number = $2",
-            &[&new_balance, &account_number]).await;
-        if let Err(e) = result {
-            return Err(e.into());
-        }
-    }
-    if let Some(account_number) = to_account {
-        let row_result = client
-        .query_one("SELECT balance FROM account WHERE account_number = $1", 
-        &[&account_number]).await;
-        if let Err(e) = row_result {
-            return Err(e.into());
-        }
-        let row = row_result?;
-        let balance: f64 = row.get("balance");
-        let new_balance = balance + amount;
-        let result = client
-            .execute("UPDATE account SET balance = $1 WHERE account_number = $2",
-            &[&new_balance, &account_number]).await;
-        if let Err(e) = result {
-            return Err(e.into());
-        }   
+pub async fn update_balance(
+    client: &Client,
+    balance: f64,
+    account_number: String
+) -> Result<()> {
+    let result = client
+        .execute("UPDATE account SET balance = $1 WHERE account_number = $2",
+        &[&balance, &account_number]).await;
+    if let Err(e) = result {
+        return Err(e.into());
     }
     Ok(())
 }
