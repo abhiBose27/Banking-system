@@ -33,7 +33,7 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             continue;
         }
 
-        let interest_paid = deposit.total_interest_paid + interest_amount;
+        let total_interest_paid = deposit.total_interest_paid + interest_amount;
         let interest_date = deposit.next_interest_date.unwrap();
         let maturity_date = deposit.maturity_date;
         let interest_timestamp = Utc.from_utc_datetime(&interest_date.and_hms_opt(0, 0, 0).unwrap());
@@ -43,7 +43,9 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             maturity_timestamp, 
             deposit.interest_payout.clone()
         );
-        update_deposit(client, deposit.id, interest_amount, interest_paid, next_interest_timestamp).await.unwrap();
-        println!("Interest Paid for deposit: {:?}", deposit);
+        match update_deposit(client, deposit.id, interest_amount, total_interest_paid, next_interest_timestamp).await {
+            Ok(_) => println!("Interest paid for deposit id: {:?}", deposit.id),
+            Err(e) => eprintln!("Error {e}: Cannot pay for deposit id: {:?}", deposit.id),
+        };
     }
 }

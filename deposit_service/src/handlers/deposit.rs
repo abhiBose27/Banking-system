@@ -41,24 +41,19 @@ pub async fn close_deposit(
     tx_dealer: &Sender<ServiceJob>,
     deposit_close: DepositClose
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let mut success = false;
-    let mut data = None;
-    let mut error_message = None;
-
-    // Validate the close deposit request
     let deposit_result = get_deposit(client, deposit_close.deposit_number.clone()).await;
     if let Err(e) = deposit_result {
         eprintln!("Error: {e}");
-        return (success, data, Some("Error: Invalid deposit_number".to_string()));
+        return (false, None, Some("Error: Invalid deposit_number".to_string()));
     }
     let customer_result = get_customer(tx_dealer, deposit_close.first_name.clone(), deposit_close.last_name.clone()).await;
     if let None = customer_result {
-        return (success, data, Some("Error: Cannot fetch customer detais".to_string()));
+        return (false, None, Some("Error: Cannot fetch customer detais".to_string()));
     }
     let customer = customer_result.unwrap();
     let deposit = deposit_result.unwrap();
     if deposit.customer_id != customer.id {
-        return (success, data, Some("Error: Invalid first name and last name".to_string()));
+        return (false, None, Some("Error: Invalid first name and last name".to_string()));
     }
 
     let current_date = Utc::now().date_naive();
@@ -76,20 +71,19 @@ pub async fn close_deposit(
     };
     let transaction_response = make_transaction(tx_dealer, transaction_request).await;
     if let None = transaction_response {
-        return (success, data, Some("Error: Unable to make transaction".to_string()));
+        return (false, None, Some("Error: Unable to make transaction".to_string()));
     }
 
     match close_deposit_db(client, deposit.id).await {
         Ok(_) => {
-            success = true;
-            data = Some(DataKind::CloseDepositResponse);
+            let data = Some(DataKind::CloseDepositResponse);
+            (true, data, None)
         },
         Err(e) => {
             eprintln!("Error: {e}");
-            error_message = Some("Error: Failed to close deposit".to_string());
+            (false, None, Some("Error: Failed to close deposit".to_string()))
         },
-    };
-    (success, data, error_message)
+    }
 }
 
 pub async fn create_deposit(
@@ -97,40 +91,35 @@ pub async fn create_deposit(
     tx_dealer: &Sender<ServiceJob>, 
     deposit_request: DepositRequest
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let mut success = false;
-    let mut data = None;
-    let mut error_message = None;
-
     let deposit_request_clone = deposit_request.clone();
     let deposit_tenure = deposit_request_clone.deposit_tenure;
     let renewed_deposit_tenure = deposit_request_clone.renewed_deposit_tenure;
     let interest_payout = deposit_request_clone.interest_payout;
     
-
     // Validate the deposit request
     if deposit_request_clone.auto_renewal && renewed_deposit_tenure.is_none() {
-        return (success, data, Some("Error: Invalid auto renewal enabled without tenure".to_string()));
+        return (false, None, Some("Error: Invalid auto renewal enabled without tenure".to_string()));
     }
     if interest_payout == InterestPayout::Renew && !deposit_request_clone.auto_renewal {
-        return (success, data, Some("Error: Interest payout to renew without auto renewal".to_string()));
+        return (false, None, Some("Error: Interest payout to renew without auto renewal".to_string()));
     }
     if !is_valid_deposit_tenure(Some(deposit_tenure.clone())) {
-        return (success, data, Some("Error: Invalid deposit tenure".to_string()));
+        return (false, None, Some("Error: Invalid deposit tenure".to_string()));
     }
     if !is_valid_deposit_tenure(renewed_deposit_tenure.clone()) {
-        return (success, data, Some("Error: Invalid renewed deposit tenure".to_string()));
+        return (false, None, Some("Error: Invalid renewed deposit tenure".to_string()));
     }
     if !is_valid_interest_payout(interest_payout.clone(), Some(deposit_tenure.clone())) {
-        return (success, data, Some("Error: Invalid interest payout".to_string()));
+        return (false, None, Some("Error: Invalid interest payout".to_string()));
     }
     if !is_valid_interest_payout(interest_payout.clone(), renewed_deposit_tenure.clone()) {
-        return (success, data, Some("Error: Invalid interest payout".to_string()));
+        return (false, None, Some("Error: Invalid interest payout".to_string()));
     }
 
     // Get the customer id from linked account number
     let account_result = get_account(tx_dealer, deposit_request.linked_account_number.clone()).await;
     if let None = account_result {
-        return (success, data, Some("Error: Cannot fetch account details".to_string()));
+        return (false, None, Some("Error: Cannot fetch account details".to_string()));
     }
     let account = account_result.unwrap();
 
@@ -142,31 +131,31 @@ pub async fn create_deposit(
     };
     let transaction_result = make_transaction(tx_dealer, transaction_request).await;
     if let None = transaction_result {
-        return (success, data, Some("Error: Cannot make transaction".to_string()));
+        return (false, None, Some("Error: Cannot make transaction".to_string()));
     }
 
     match add_deposit(client, account.customer_id, deposit_request).await {
         Ok(deposit) => {
-            success = true;
-            let deposit_api = DepositResponse {
-                deposit_number: deposit.deposit_number,
-                linked_account_number: deposit.linked_account_number,
-                principal_amount: deposit.principal_amount,
-                interest_rate: deposit.interest_rate,
-                interest_payout: deposit.interest_payout,
-                auto_renewal: deposit.auto_renewal,
-                maturity_date: deposit.maturity_date,
-                deposit_tenure: deposit.deposit_tenure,
-                renewed_deposit_tenure: deposit.renewed_deposit_tenure,
-                creation_timestamp: deposit.creation_timestamp,
-            };
-            data = Some(DataKind::CreateDepositResponse { deposit: deposit_api.clone() });
+            let data = Some(DataKind::CreateDepositResponse { 
+                deposit: DepositResponse {
+                    deposit_number: deposit.deposit_number,
+                    linked_account_number: deposit.linked_account_number,
+                    principal_amount: deposit.principal_amount,
+                    interest_rate: deposit.interest_rate,
+                    interest_payout: deposit.interest_payout,
+                    auto_renewal: deposit.auto_renewal,
+                    maturity_date: deposit.maturity_date,
+                    deposit_tenure: deposit.deposit_tenure,
+                    renewed_deposit_tenure: deposit.renewed_deposit_tenure,
+                    creation_timestamp: deposit.creation_timestamp,
+                } 
+            });
+            (true, data, None)
         },
         Err(e) => {
             eprintln!("Error: {e}");
-            error_message = Some("Error: Failed to open deposit account".to_string());
+            (false, None, Some("Error: Failed to open deposit account".to_string()))
         },
-    };
+    }
 
-    (success, data, error_message)
 }

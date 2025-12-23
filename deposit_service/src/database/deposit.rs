@@ -58,7 +58,8 @@ fn get_interest_amount_to_frequency(
     principal_amount: f64,
     interest_rate: f64,
     interest_payout: InterestPayout,
-    deposit_tenure: Option<DepositTenure>) -> HashMap<String, usize> {
+    deposit_tenure: Option<DepositTenure>
+) -> HashMap<String, usize> {
     let mut hashmap = HashMap::new();
     if let None = deposit_tenure {
         return hashmap;
@@ -71,29 +72,22 @@ fn get_interest_amount_to_frequency(
             let daily_interest_amount = annual_interest_amount / 365.0;
             let key = format!("{:.2}", daily_interest_amount);
             hashmap.insert(key, total_days.try_into().unwrap());
-            //vec![daily_interest_amount; total_days.try_into().unwrap()]
         },
         InterestPayout::Monthly => {
             let total_months = total_days / 30;
             let leftover_days = total_days % 30;
             let monthly_interest_amount = annual_interest_amount / 12.0;
-            let leftover_interest_amount = annual_interest_amount * (leftover_days as f64 / 365.0 as f64);
+            let leftover_interest_amount = annual_interest_amount * (leftover_days as f64 / 365.0);
             hashmap.insert(format!("{:.2}", monthly_interest_amount), total_months.try_into().unwrap());
             hashmap.insert(format!("{:.2}", leftover_interest_amount), 1);
-            //let mut interest_amounts = vec![monthly_interest_amount; total_months.try_into().unwrap()];
-            //interest_amounts.push(annual_interest_amount * (leftover_days as f64 / 365.0 as f64));
-            //interest_amounts
         },
         InterestPayout::Quaterly => {
             let total_quaters = total_days / 91;
             let leftover_days = total_days % 91;
             let quaterly_interest_amount = annual_interest_amount / 4.0;
-            let leftover_interest_amount = annual_interest_amount * (leftover_days as f64 / 365.0 as f64);
+            let leftover_interest_amount = annual_interest_amount * (leftover_days as f64 / 365.0);
             hashmap.insert(format!("{:.2}", quaterly_interest_amount), total_quaters.try_into().unwrap());
             hashmap.insert(format!("{:.2}", leftover_interest_amount), 1);
-            //let mut interest_amounts = vec![quaterly_interest_amount; total_quaters.try_into().unwrap()];
-            //interest_amounts.push(annual_interest_amount * (leftover_days as f64 / 365.0 as f64));
-            //interest_amounts
 
         },
         _ => {
@@ -103,7 +97,6 @@ fn get_interest_amount_to_frequency(
             let simple_interest = quarter_compound_interest * leftover_days as f64 * (interest_rate / 100.0) / 365.0;
             let maturity_interest = quarter_compound_interest + simple_interest - principal_amount as f64;
             hashmap.insert(format!("{:.2}", maturity_interest), 1);
-            //vec![maturity_interest]
         },
     };
     hashmap

@@ -41,46 +41,54 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
             continue;
         }
         // Close the current deposit
-        close_deposit(client, deposit.id).await.unwrap();
-
-        // If its auto renewable
-        // Create a new deposit with the new amount
-        if deposit.auto_renewal {
-            // Renewed deposit request
-            let new_deposit_request = DepositRequest {
-                linked_account_number: deposit.linked_account_number,
-                principal_amount: amount,
-                deposit_tenure: deposit.renewed_deposit_tenure.clone().unwrap(),
-                interest_payout: deposit.interest_payout,
-                auto_renewal: deposit.auto_renewal,
-                renewed_deposit_tenure: deposit.renewed_deposit_tenure,
-            };
-            let transaction_request_debit = TransactionRequest {
-                amount,
-                from_account_number: Some(new_deposit_request.linked_account_number.clone()),
-                to_account_number: None
-            };
-            let transaction_response_debit = make_transaction(tx_dealer, transaction_request_debit).await;
-            if let None = transaction_response_debit {
-                eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
-                continue;
-            }
-
-            // Add deposit to DB
-            let new_deposit = add_deposit(client, deposit.customer_id, new_deposit_request).await.unwrap();
-            let deposit_response = DepositResponse {
-                deposit_number: new_deposit.deposit_number,
-                linked_account_number: new_deposit.linked_account_number,
-                principal_amount: new_deposit.principal_amount,
-                interest_rate: new_deposit.interest_rate,
-                interest_payout: new_deposit.interest_payout,
-                auto_renewal: new_deposit.auto_renewal,
-                maturity_date: new_deposit.maturity_date,
-                deposit_tenure: new_deposit.deposit_tenure,
-                renewed_deposit_tenure: new_deposit.renewed_deposit_tenure,
-                creation_timestamp: new_deposit.creation_timestamp,
-            };
-            println!("Renewed deposit {:?}", deposit_response);
+        let close_deposit_response = close_deposit(client, deposit.id).await;
+        if let Err(e) = close_deposit_response {
+            eprintln!("Error {e}: Unable to close deposit id: {:?}", deposit.id);
+            continue;
         }
+
+        if !deposit.auto_renewal {
+            continue;
+        }
+
+        // Renewed deposit request
+        let new_deposit_request = DepositRequest {
+            linked_account_number: deposit.linked_account_number,
+            principal_amount: amount,
+            deposit_tenure: deposit.renewed_deposit_tenure.clone().unwrap(),
+            interest_payout: deposit.interest_payout,
+            auto_renewal: deposit.auto_renewal,
+            renewed_deposit_tenure: deposit.renewed_deposit_tenure,
+        };
+        let transaction_request_debit = TransactionRequest {
+            amount,
+            from_account_number: Some(new_deposit_request.linked_account_number.clone()),
+            to_account_number: None
+        };
+        let transaction_response_debit = make_transaction(tx_dealer, transaction_request_debit).await;
+        if let None = transaction_response_debit {
+            eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
+            continue;
+        }
+
+        // Add deposit to DB
+        match add_deposit(client, deposit.customer_id, new_deposit_request).await {
+            Ok(new_deposit) => {
+                let deposit_response = DepositResponse {
+                    deposit_number: new_deposit.deposit_number,
+                    linked_account_number: new_deposit.linked_account_number,
+                    principal_amount: new_deposit.principal_amount,
+                    interest_rate: new_deposit.interest_rate,
+                    interest_payout: new_deposit.interest_payout,
+                    auto_renewal: new_deposit.auto_renewal,
+                    maturity_date: new_deposit.maturity_date,
+                    deposit_tenure: new_deposit.deposit_tenure,
+                    renewed_deposit_tenure: new_deposit.renewed_deposit_tenure,
+                    creation_timestamp: new_deposit.creation_timestamp,
+                };
+                println!("Renewed deposit {:?}", deposit_response);
+            },
+            Err(e) => eprintln!("Error {e}: Failed to renew deposit id {:?}", deposit.id),
+        };
     }
 }

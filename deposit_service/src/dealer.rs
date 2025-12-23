@@ -110,13 +110,12 @@ impl DealerService {
         
         tokio::spawn(async move {
             let job_scheduler = JobScheduler::new().await.unwrap();
-            let interest_job = Job::new_async("0 0 1 ? * *", {
+            let interest_job = Job::new_async("0 25 18 ? * *", {
                 move |uuid, mut lock| {
                     let client = client2.clone();
                     let tx_outgoing = tx_outgoing2.clone();
                     Box::pin(async move {
                         process_interests(&client, &tx_outgoing).await;
-
                         let next_tick = lock.next_tick_for_job(uuid).await;
                         match next_tick {
                             Ok(Some(ts)) => println!("Next tick for interests at {:?}", ts),
@@ -126,7 +125,7 @@ impl DealerService {
                 }
             }).unwrap();
 
-            let maturity_job = Job::new_async("0 5 1 ? * *", { 
+            let maturity_job = Job::new_async("0 27 18 ? * *", { 
                 move |uuid, mut lock| {
                     let client = client3.clone();
                     let tx_outgoing = tx_outgoing3.clone();
@@ -175,8 +174,7 @@ impl DealerService {
                         let tx_job = message.tx_job;
                         id_to_tx_job.insert(id, tx_job.unwrap());
                     }
-                    let is_sent = dealer.send_event(event_message.clone()).await;
-                    if !is_sent {
+                    if !dealer.send_event(event_message.clone()).await {
                         eprintln!("Error: Cant send message {:?}", event_message)
                     }
                 }
