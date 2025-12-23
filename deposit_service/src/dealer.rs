@@ -125,7 +125,7 @@ impl DealerService {
                 }
             }).unwrap();
 
-            let maturity_job = Job::new_async("0 30 18 ? * *", { 
+            let maturity_job = Job::new_async("0 30 0 ? * *", { 
                 move |uuid, mut lock| {
                     let client = client3.clone();
                     let tx_outgoing = tx_outgoing3.clone();
