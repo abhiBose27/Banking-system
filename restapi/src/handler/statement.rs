@@ -35,13 +35,17 @@ async fn get(
         Ok(Ok(response)) => {
             match response.clone() {
                 EventType::Response { id:_, success, error_message, data } => {
-                    if !success {
-                        HttpResponse::BadRequest().body(error_message.unwrap())
-                    }
-                    else {
-                        let data= data.unwrap();
-                        let body = serde_json::to_vec(&data).unwrap();
-                        HttpResponse::Ok().body(body)
+                    match success {
+                        true => {
+                            match data {
+                                Some(d) => {
+                                    let body = serde_json::to_string(&d).unwrap();
+                                    HttpResponse::Ok().body(body)
+                                },
+                                None => HttpResponse::Ok().body("Success".to_string()),
+                            }
+                        },
+                        false => HttpResponse::BadRequest().body(error_message.unwrap_or("Error: Failed request".to_string())),
                     }
                 }
                 _ => panic!("Error: Unknown object received on API: {:?}", response.clone())

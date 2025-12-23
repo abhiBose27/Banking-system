@@ -53,8 +53,8 @@ impl DealerService {
     #[actix_web::main]
     async fn http_server(self) -> std::io::Result<()> {
         task::spawn(async move {
-            let mut rx_controller = self.rx_service;
             let mut dealer = self.dealer;
+            let mut rx_controller = self.rx_service;
             let mut id_to_response_tx = self.id_to_tx_job;
             loop {
                 select! {
@@ -71,7 +71,7 @@ impl DealerService {
                     }
 
                     Some(event_message) = dealer.recv_event() => {
-                        println!("Received client response: {:?}", event_message.clone());
+                        println!("Received response: {:?}", event_message.clone());
                         if let EventType::Response { id, data: _, success:_, error_message: _ } = event_message.data {
                             let response_tx = id_to_response_tx.remove(&id).unwrap();
                             response_tx.send(event_message.data.clone()).unwrap();
