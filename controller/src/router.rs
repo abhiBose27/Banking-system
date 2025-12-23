@@ -77,8 +77,8 @@ impl RouterService {
     }
 
     pub async fn worker(self) -> Result<()> {
-        println!("Starting the Controller");
         let _ = self.register_services().await;
+        println!("Starting the Controller");
         loop {
             let mut router = self.router.lock().await;
             loop {
@@ -102,7 +102,7 @@ impl RouterService {
                         continue;
                     }
 
-                    let to_service = event_message.clone().to;
+                    let to_service = event_message.to.clone();
                     let service_id = service_to_identity.get(&to_service).unwrap();
                     let zmq_message = Self::prepare_payload(event_message.clone(), service_id.clone());
                     println!("Routing message to {:?}", to_service);
