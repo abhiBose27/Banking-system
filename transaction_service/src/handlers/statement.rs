@@ -8,18 +8,14 @@ pub async fn get_statement(
     client: &Client,
     statement_request: StatementRequest,
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let mut success = false;
-    let mut data = None;
-    let mut error_message = None;
     match get_statement_db(client, statement_request.clone()).await {
         Ok(statement) => {
-            success = true;
-            data = Some(DataKind::GetStatementResponse { statement });
+            let data = Some(DataKind::GetStatementResponse { statement });
+            (true, data, None)
         },
         Err(e) => {
             eprintln!("Error: {e}");
-            error_message = Some("Error: Failed to get statement".to_string());
+            (false, None, Some("Error: Failed to get statement".to_string()))
         },
-    };
-    (success, data, error_message)
+    }
 }

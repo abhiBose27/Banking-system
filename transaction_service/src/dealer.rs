@@ -135,8 +135,7 @@ impl DealerService {
                         let tx_job = message.tx_job;
                         id_to_tx_job.insert(id, tx_job.unwrap());
                     }
-                    let is_sent = dealer.send_event(event_message.clone()).await;
-                    if !is_sent {
+                    if !dealer.send_event(event_message.clone()).await {
                         eprintln!("Error: Cant send message {:?}", event_message)
                     }
                 }
