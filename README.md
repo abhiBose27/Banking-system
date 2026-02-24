@@ -10,16 +10,16 @@ This system powers key banking operations such as customer management, account m
                         │         API Service       │
                         │ (Actix — external entry)  │
                         └──────────────┬────────────┘
-                                       │ HTTP
+                                       │ ZMQ
                                        ▼
-                        ┌──────────────────────────┐
-                        │     Controller Service   │
-                        │   (ZeroMQ Router/Dealer) │ ◄ ── ─ ┌──────────────────────────┐
-                        │ Routes all internal msgs |        |       Deposit Serivce    |
-                        └───────┬─────────┬────────┘        │  • Open / Close Deposit  │
-                                │         │                 |  • Interest Accrual      |
-                                ▼         ▼                 │  • Maturity Handling     │
-                                                            └──────────────────────────┘
+___________________       ┌──────────────────────────┐
+|  User Service    |      │     Controller Service   │
+|  • SignIn        |_____ │   (ZeroMQ Router/Dealer) │ ◄ ── ─ ┌──────────────────────────┐
+|  • Login         |      │ Routes all internal msgs |        |       Deposit Serivce    |
+|__________________|      └───────┬─────────┬────────┘        │  • Open / Close Deposit  │
+                                  │         │                 |  • Interest Accrual      |
+                                  ▼         ▼                 │  • Maturity Handling     │
+                                                              └──────────────────────────┘
        ┌──────────────────────────┐   ┌─────────────────────────┐
        │     Account Service      │   │   Transaction Service   │
        │  • Add Customer          │   │  • Create Transaction   │
