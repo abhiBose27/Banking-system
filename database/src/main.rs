@@ -23,8 +23,8 @@ async fn main() -> Result<(), Error> {
             client.batch_execute(
                 "CREATE TABLE IF NOT EXISTS account(
                     id UUID PRIMARY KEY,
-                    customer_id UUID NOT NULL,
-                    account_number TEXT NOT NULL,
+                    customer_id UUID NOT NULL UNIQUE,
+                    account_number TEXT NOT NULL UNIQUE,
                     balance DOUBLE PRECISION NOT NULL,
                     creation_timestamp TIMESTAMPTZ NOT NULL
                 );"
@@ -74,6 +74,16 @@ async fn main() -> Result<(), Error> {
                     from_acc TEXT,
                     to_acc TEXT,
                     transaction_timestamp TIMESTAMPTZ NOT NULL
+                );"
+            ).await.unwrap();
+
+            client.batch_execute("
+                CREATE TABLE IF NOT EXISTS db_user(
+                    id UUID PRIMARY KEY,
+                    username TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL UNIQUE,
+                    role TEXT NOT NULL,
+                    customer_id UUID UNIQUE 
                 );"
             ).await.unwrap();
         }
