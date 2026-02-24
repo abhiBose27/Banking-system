@@ -1,25 +1,30 @@
-use std::time::Duration;
-use actix_web::{HttpResponse, Responder, delete, post, web};
+use std::{time::Duration};
+use actix_web::{HttpRequest, HttpMessage, HttpResponse, Responder, delete, post, web};
 use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
 use object::interfaces::{
+    authentication::AuthContext, 
     deposit::{DepositClose, DepositRequest}, 
     io::{DataKind, EventMessage, EventType, Service}, 
     service_job::ServiceJob
 };
 
+
 #[post("/deposit")]
 async fn create(
+    request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
     api_obj: web::Json<DepositRequest>
 ) -> impl Responder {
+    let auth = request.extensions().get::<AuthContext>().cloned().unwrap();
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CreateDeposit{ deposit_request: api_obj.clone() }
+            data: DataKind::CreateDeposit{ deposit_request: api_obj.clone() },
+            customer_id: auth.customer_id
         },
         from: Service::Api,
         to: Service::Deposit,
@@ -38,7 +43,7 @@ async fn create(
      match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id:_, success, data, error_message } => {
+                EventType::Response { id:_, success, data, error_message, customer_id: _ } => {
                     match success {
                         true => {
                             match data {
@@ -64,14 +69,17 @@ async fn create(
 
 #[delete("/deposit")]
 async fn delete(
+    request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
     api_obj: web::Json<DepositClose>
 ) -> impl Responder {
+    let auth = request.extensions().get::<AuthContext>().cloned().unwrap();
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CloseDeposit{ deposit_close: api_obj.clone() }
+            data: DataKind::CloseDeposit { deposit_number: api_obj.deposit_number.clone() },
+            customer_id: auth.customer_id
         },
         from: Service::Api,
         to: Service::Deposit,
@@ -90,7 +98,7 @@ async fn delete(
      match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id:_, success, data, error_message } => {
+                EventType::Response { id:_, success, data, error_message, customer_id: _ } => {
                     match success {
                         true => {
                             match data {

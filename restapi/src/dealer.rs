@@ -1,17 +1,20 @@
 use chrono::Utc;
 use actix_cors::Cors;
-use std::collections::HashMap;
+use std::{collections::HashMap};
 use actix_web::{http::header::HeaderName, middleware, web, App, HttpServer};
 use tokio::{select, sync::mpsc, task};
 
 use object::interfaces::{
-    dealer::Dealer, io::{EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}, service_job::ServiceJob
+    api_config::ApiConfig, authentication::JwtConfig, 
+    dealer::Dealer, io::{EventMessage, EventType, Service}, 
+    ports::Ports::{self, ControllerRoute}, service_job::ServiceJob
 };
 
-use crate::{authentication::auth::internal_auth, handler, interfaces::dealer::DealerService};
+use crate::{authentication::authentication::{internal_auth}, handler, interfaces::dealer::DealerService};
 
 
 impl DealerService {
+    
     async fn connect(port: Ports) -> Dealer {
         let mut dealer = Dealer::new(
             "tcp://localhost".to_string(), 
@@ -32,7 +35,7 @@ impl DealerService {
         dealer
     }
 
-    pub async fn new() -> Self {
+    pub async fn new(api_config: ApiConfig) -> Self {
         let dealer = Self::connect(ControllerRoute).await;
         let (tx_service, rx_service) = mpsc::channel::<ServiceJob>(128);
         let id_to_tx_job = HashMap::new();
@@ -40,7 +43,8 @@ impl DealerService {
             dealer,
             tx_service,
             rx_service,
-            id_to_tx_job
+            id_to_tx_job,
+            client_secret: api_config.client_jwt_secret,
         }
     }
 
@@ -61,7 +65,7 @@ impl DealerService {
                     Some(request_job) = rx_controller.recv() => {
                         let event_message = request_job.data.clone();
                         let tx_job = request_job.tx_job;
-                        if let EventType::Request { id, data:_ } = event_message.data {
+                        if let EventType::Request { id, data:_, customer_id: _ } = event_message.data {
                             id_to_response_tx.insert(id, tx_job.unwrap());
                             println!("Sending request: {:?}", event_message);
                             if !dealer.send_event(event_message.clone()).await {
@@ -72,7 +76,7 @@ impl DealerService {
 
                     Some(event_message) = dealer.recv_event() => {
                         println!("Received response: {:?}", event_message.clone());
-                        if let EventType::Response { id, data: _, success:_, error_message: _ } = event_message.data {
+                        if let EventType::Response { id, data: _, success:_, error_message: _ , customer_id: _} = event_message.data {
                             let response_tx = id_to_response_tx.remove(&id).unwrap();
                             response_tx.send(event_message.data.clone()).unwrap();
                         }
@@ -81,22 +85,40 @@ impl DealerService {
             }
         });
 
+        let jwt_cfg = JwtConfig {
+            client_secret: self.client_secret.into_bytes(),
+            issuer: "bank-auth".to_string(),
+            client_aud: "bank-clients".to_string(),
+            admin_aud:"bank-admin".to_string(), 
+            admin_secret: "".as_bytes().to_vec()
+        };
+
         HttpServer::new(move || {
             let x_total = HeaderName::from_lowercase(b"x-total").unwrap();
             let cors = Cors::permissive().expose_headers([x_total]);
             App::new()
                 .app_data(web::Data::new(self.tx_service.clone()))
+                .app_data(web::Data::new(jwt_cfg.clone()))
                 .wrap(cors)
                 .wrap(middleware::DefaultHeaders::new().add(("X-Version", "0.1")))
                 .wrap(middleware::Compress::default())
-                .wrap(middleware::from_fn(internal_auth))
                 .route("/", web::get().to(handler::handshake::handshake_handler))
-                .service(handler::account::create)
-                .service(handler::customer::create)
-                .service(handler::transaction::create)
-                .service(handler::deposit::create)
-                .service(handler::deposit::delete)
-                .service(handler::statement::get)
+                .service(
+                    web::scope("/auth")
+                        .service(handler::login::client_login)
+                        .service(handler::signin::client_signin)
+                )
+                .service(
+                    web::scope("/api")
+                        .wrap(middleware::from_fn(internal_auth))
+                        .service(handler::account::create)
+                        .service(handler::customer::create)
+                        .service(handler::transaction::create)
+                        .service(handler::deposit::create)
+                        .service(handler::deposit::delete)
+                        .service(handler::statement::get)
+
+                )
         })
         .bind(("0.0.0.0", 3003))?
         .run()

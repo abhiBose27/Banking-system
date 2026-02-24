@@ -1,21 +1,24 @@
 use std::time::Duration;
-use actix_web::{HttpResponse, Responder, get, web};
+use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, get, web};
 use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
-use object::interfaces::{io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob, statement::StatementRequest};
+use object::interfaces::{authentication::AuthContext, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob, statement::StatementRequest};
 
 #[get("/statement")]
 async fn get(
+    request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
     api_obj: web::Json<StatementRequest>
 ) -> impl Responder {
+    let auth = request.extensions().get::<AuthContext>().cloned().unwrap();
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::GetStatement { statement_request: api_obj.clone() }
+            data: DataKind::GetStatement { statement_request: api_obj.clone() },
+            customer_id: auth.customer_id 
         },
         from: Service::Api,
         to: Service::Transaction,
@@ -34,7 +37,7 @@ async fn get(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id:_, success, error_message, data } => {
+                EventType::Response { id:_, success, error_message, data, customer_id: _ } => {
                     match success {
                         true => {
                             match data {

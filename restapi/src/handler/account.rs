@@ -16,7 +16,8 @@ async fn create(
     let event_message = EventMessage { 
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CreateAccount { account_request: api_obj.clone() }
+            data: DataKind::CreateAccount { account_request: api_obj.clone() },
+            customer_id: None
         }, 
         from: Service::Api, 
         to: Service::Account, 
@@ -35,7 +36,7 @@ async fn create(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id:_, success, data, error_message } => {
+                EventType::Response { id:_, customer_id: _, success, data, error_message } => {
                     match success {
                         true => {
                             match data {

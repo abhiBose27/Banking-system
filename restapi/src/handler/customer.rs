@@ -14,9 +14,10 @@ async fn create(
 ) -> impl Responder {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
-        data: EventType::Request { 
-            id: Uuid::new_v4(), 
-            data: DataKind::CreateCustomer { customer_request: api_obj.clone() }
+        data: EventType::Request {
+            id: Uuid::new_v4(),
+            data: DataKind::CreateCustomer { customer_request: api_obj.clone() }, 
+            customer_id: None 
         },
         from: Service::Api,
         to: Service::Account,
@@ -33,7 +34,7 @@ async fn create(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {
-                EventType::Response { id: _, success, error_message, data } => {
+                EventType::Response { id: _, success, error_message, data, customer_id: _ } => {
                    match success {
                         true => {
                             match data {
