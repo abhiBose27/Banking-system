@@ -41,7 +41,8 @@ impl RouterService {
             Service::Api, 
             Service::Account, 
             Service::Transaction,
-            Service::Deposit
+            Service::Deposit,
+            Service::User
         ];
         println!("Services to register: {:?}", services_to_register);
         while !services_to_register.is_empty() {
