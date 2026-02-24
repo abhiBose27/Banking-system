@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 use uuid::Uuid;
 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionType {  
     Credit,

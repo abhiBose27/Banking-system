@@ -4,6 +4,7 @@ use ulid::Ulid;
 
 use crate::interfaces::transaction::TransactionType;
 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatementRequest {
     pub account_number: String,

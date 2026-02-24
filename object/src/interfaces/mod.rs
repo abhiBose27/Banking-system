@@ -8,3 +8,8 @@ pub mod statement;
 pub mod dealer;
 pub mod service_config;
 pub mod service_job;
+pub mod authentication;
+pub mod login;
+pub mod user;
+pub mod signin;
+pub mod api_config;

@@ -1,13 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use ulid::Ulid;
 use uuid::Uuid;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountRequest {
-    pub pan_id: String,
-    pub first_name: String,
-    pub last_name: String
+    pub customer_reference_id: Ulid
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +21,5 @@ pub struct Account {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountResponse {
     pub account_number: String,
-    pub balance: f64,
     pub creation_timestamp: DateTime<Utc>
 }

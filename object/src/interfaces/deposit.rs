@@ -1,8 +1,9 @@
 use std::collections::HashMap;
-
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use ulid::Ulid;
 use uuid::Uuid;
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum InterestPayout {
@@ -37,8 +38,7 @@ pub struct DepositRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepositClose {
-    pub first_name: String,
-    pub last_name: String,
+    pub customer_reference_id: Ulid,
     pub deposit_number: String
 }
 

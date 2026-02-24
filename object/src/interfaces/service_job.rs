@@ -1,4 +1,3 @@
-
 use tokio::sync::oneshot::Sender;
 
 use crate::interfaces::io::{EventMessage, EventType};
