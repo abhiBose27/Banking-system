@@ -8,7 +8,8 @@ use object::interfaces::{account::Account, io::{DataKind, EventMessage, EventTyp
 
 pub async fn get_account(
     tx_dealer: &Sender<ServiceJob>, 
-    account_number: String
+    account_number: String,
+    customer_id: Option<Uuid>
 ) ->  Option<Account> {
 
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
@@ -16,7 +17,8 @@ pub async fn get_account(
     let request = EventMessage {
         data: EventType::Request { 
             id: request_id, 
-            data: DataKind::GetAccount { account_number } 
+            data: DataKind::GetAccount { account_number },
+            customer_id, 
         },
         from: Service::Transaction,
         to: Service::Account,
@@ -33,7 +35,7 @@ pub async fn get_account(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response {
-                EventType::Response { id:_, success:_, error_message:_, data } => {
+                EventType::Response { id:_, success:_, error_message:_, data, customer_id: _ } => {
                     match data {
                         Some(d) => {
                             match d {
