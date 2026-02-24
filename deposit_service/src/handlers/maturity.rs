@@ -35,7 +35,7 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
             from_account_number: None,
             to_account_number: Some(deposit.linked_account_number.clone()),
         };
-        let transaction_response = make_transaction(tx_dealer, transaction_request).await;
+        let transaction_response = make_transaction(tx_dealer, transaction_request, None).await;
         if let None = transaction_response {
             eprintln!("Error: Unable to credit principal amount {} to {}", amount, deposit.linked_account_number);
             continue;
@@ -65,7 +65,7 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
             from_account_number: Some(new_deposit_request.linked_account_number.clone()),
             to_account_number: None
         };
-        let transaction_response_debit = make_transaction(tx_dealer, transaction_request_debit).await;
+        let transaction_response_debit = make_transaction(tx_dealer, transaction_request_debit, None).await;
         if let None = transaction_response_debit {
             eprintln!("Error: Unable to debit principal amount {} to {}", amount, new_deposit_request.linked_account_number);
             continue;

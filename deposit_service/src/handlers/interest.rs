@@ -27,7 +27,7 @@ pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) 
             from_account_number: None,
             to_account_number: Some(deposit.linked_account_number.clone()),
         };
-        let transaction_response = make_transaction(tx_dealer, transaction_request).await;
+        let transaction_response = make_transaction(tx_dealer, transaction_request, None).await;
         if let None = transaction_response {
             eprintln!("Error: Unable to process interest for {} to {}", deposit.deposit_number, deposit.linked_account_number);
             continue;

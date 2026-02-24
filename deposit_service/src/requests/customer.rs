@@ -1,6 +1,7 @@
 use std::time::Duration;
 use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
+use ulid::Ulid;
 use uuid::Uuid;
 
 use object::interfaces::{
@@ -12,8 +13,7 @@ use object::interfaces::{
 
 pub async fn get_customer(
     tx_dealer: &Sender<ServiceJob>, 
-    first_name: String,
-    last_name: String
+    customer_id: Uuid 
 ) ->  Option<Customer> {
 
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
@@ -21,7 +21,7 @@ pub async fn get_customer(
     let request = EventMessage {
         data: EventType::Request { 
             id: request_id, 
-            data: DataKind::GetCustomer { first_name, last_name } 
+            data: DataKind::GetCustomer { customer_reference_id } 
         },
         from: Service::Deposit,
         to: Service::Account,

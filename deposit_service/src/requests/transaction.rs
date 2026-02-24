@@ -7,8 +7,9 @@ use object::interfaces::{io::{DataKind, EventMessage, EventType, Service}, servi
 
 
 pub async fn make_transaction(
-    tx_dealer: &Sender<ServiceJob>, 
-    transaction_request: TransactionRequest
+    tx_dealer: &Sender<ServiceJob>,
+    transaction_request: TransactionRequest,
+    customer_id: Option<Uuid>
 ) -> Option<TransactionResponse> {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let request_id = Uuid::new_v4();
@@ -17,7 +18,8 @@ pub async fn make_transaction(
             id: request_id, 
             data: DataKind::CreateTransaction { 
                 transaction_request: transaction_request.clone() 
-            } 
+            },
+            customer_id, 
         },
         from: Service::Deposit,
         to: Service::Transaction,
@@ -34,7 +36,7 @@ pub async fn make_transaction(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response {
-                EventType::Response { id:_, success:_, error_message:_, data } => {
+                EventType::Response { id:_, success:_, error_message:_, data, customer_id: _ } => {
                     match data {
                         Some(d) => {
                             match d {

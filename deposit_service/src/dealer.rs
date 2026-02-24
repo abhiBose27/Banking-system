@@ -1,8 +1,8 @@
+use uuid::Uuid;
+use chrono::Utc;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{select, sync::mpsc::{self, Sender}};
 use tokio_cron_scheduler::{Job, JobScheduler};
-use uuid::Uuid;
-use chrono::Utc;
 use tokio_postgres::{Client, NoTls, connect};
 
 use object::interfaces::{
@@ -59,13 +59,19 @@ impl DealerService {
         dealer
     }
 
-    async fn resolve_request(client: &Client, tx_dealer: &Sender<ServiceJob>, data: DataKind, request_id: Uuid) -> EventType {
+    async fn resolve_request(
+        client: &Client, 
+        tx_dealer: &Sender<ServiceJob>, 
+        data: DataKind, 
+        request_id: Uuid,
+        customer_id: Option<Uuid>
+    ) -> EventType {
         let (success, data, error_message) = match data {
             DataKind::CreateDeposit { deposit_request } => {
-                create_deposit(client, tx_dealer, deposit_request).await
+                create_deposit(client, tx_dealer, deposit_request, customer_id).await
             },
-            DataKind::CloseDeposit { deposit_close } => {
-                close_deposit(client, tx_dealer, deposit_close).await
+            DataKind::CloseDeposit { deposit_number } => {
+                close_deposit(client, tx_dealer, deposit_number, customer_id).await
             }
             _  => panic!("Error: Invalid request received {ControllerRoute}")
         };
@@ -73,7 +79,8 @@ impl DealerService {
             id: request_id, 
             success, 
             error_message, 
-            data 
+            data,
+            customer_id 
         }
     }
 
@@ -147,21 +154,18 @@ impl DealerService {
         
         tokio::spawn(async move {
             loop {
-                select! {
-                    Some(message) = rx_incoming.recv() => {
-                        // Process incoming request
-                        let event_message = message.data;
-                        println!("Received request {:?}", event_message);
-                        if let EventType::Request { id, data } = event_message.data {
-                            let response_message = EventMessage {
-                                data: Self::resolve_request(&client1, &tx_outgoing1, data, id).await,
-                                from: event_message.to,
-                                to: event_message.from,
-                                timestamp: Utc::now()
-                            };
-                            let service_job = ServiceJob { tx_job: None, data: response_message };
-                            tx_outgoing1.send(service_job).await.unwrap();
-                        }
+                if let Some(message) = rx_incoming.recv().await {
+                    let event_message = message.data;
+                    println!("Received request {:?}", event_message);
+                    if let EventType::Request { id, data, customer_id } = event_message.data {
+                        let response_message = EventMessage {
+                            data: Self::resolve_request(&client1, &tx_outgoing1, data, id, customer_id).await,
+                            from: event_message.to,
+                            to: event_message.from,
+                            timestamp: Utc::now()
+                        };
+                        let service_job = ServiceJob { tx_job: None, data: response_message };
+                        tx_outgoing1.send(service_job).await.unwrap();
                     }
                 }
             }
@@ -170,7 +174,7 @@ impl DealerService {
             select! {
                 Some(message) = rx_outgoing.recv() => {
                     let event_message = message.data;
-                    if let EventType::Request { id, data: _} = event_message.data {
+                    if let EventType::Request { id, data:_, customer_id: _ } = event_message.data {
                         let tx_job = message.tx_job;
                         id_to_tx_job.insert(id, tx_job.unwrap());
                     }
@@ -181,14 +185,14 @@ impl DealerService {
 
                 Some(message) = dealer.recv_event() => {
                     match message.data {
-                        EventType::Request { id:_, data:_ } => {
+                        EventType::Request { id:_,data:_, customer_id: _ } => {
                             let service_job = ServiceJob { 
                                 tx_job: None, 
                                 data: message.clone() 
                             };
                             tx_incoming.send(service_job).await.unwrap();
                         },
-                        EventType::Response { id, success:_, error_message:_, data:_ } => {
+                        EventType::Response { id, success:_,error_message:_,data:_, customer_id: _ } => {
                             let tx_job = id_to_tx_job.remove(&id).unwrap();
                             tx_job.send(message.data.clone()).unwrap();
                         },
