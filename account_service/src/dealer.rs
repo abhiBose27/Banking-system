@@ -11,7 +11,7 @@ use object::interfaces::{
 use crate::{
     handlers::{
         account::{create_account, get_account, update_balance}, 
-        customer::create_customer
+        customer::{create_customer, get_customer}
     }, interfaces::dealer::DealerService
 };
 
@@ -58,7 +58,7 @@ impl DealerService {
         dealer
     }
 
-    async fn resolve_request(client: &Client, data: DataKind, request_id: Uuid) -> EventType {
+    async fn resolve_request(client: &Client, data: DataKind, request_id: Uuid, customer_id: Option<Uuid>) -> EventType {
         let (success, data, error_message) = match data {
             DataKind::CreateAccount { account_request } => {
                 create_account(client, account_request).await
@@ -69,10 +69,13 @@ impl DealerService {
 
             // Exclusive IOs
             DataKind::UpdateBalance { account_number, balance } => {
-                update_balance(client, account_number, balance).await
+                update_balance(client, account_number, balance, customer_id).await
             }
             DataKind::GetAccount { account_number } => {
-                get_account(client, account_number).await
+                get_account(client, account_number, customer_id).await
+            }
+            DataKind::GetCustomer { customer_reference_id } => {
+                get_customer(client, customer_reference_id).await
             }
             _ => panic!("Error: Invalid request received {ControllerRoute}")
         };
@@ -80,7 +83,8 @@ impl DealerService {
             id: request_id, 
             success, 
             error_message, 
-            data 
+            data,
+            customer_id
         }
     }
 
@@ -100,9 +104,9 @@ impl DealerService {
         loop {
             if let Some(event_message) = dealer.recv_event().await {
                 println!("Received request: {:?}", event_message);
-                if let EventType::Request { id, data } = event_message.data {
+                if let EventType::Request {id, data, customer_id } = event_message.data {
                     let response_message = EventMessage {
-                        data: Self::resolve_request(&client, data, id).await,
+                        data: Self::resolve_request(&client, data, id, customer_id).await,
                         from: event_message.to,
                         to: event_message.from,
                         timestamp: Utc::now()

@@ -1,18 +1,16 @@
 use chrono::Utc;
-use object::interfaces::customer::{Customer, CustomerRequest};
 use tokio_postgres::Client;
 use ulid::Ulid;
 use uuid::Uuid;
 use anyhow::Result;
 
-pub async fn get_customer(client: &Client, pan_id: String, first_name: String, last_name: String) -> Result<Customer> {
+use object::interfaces::customer::{Customer, CustomerRequest};
+
+
+pub async fn get_customer(client: &Client, customer_reference_id: Ulid) -> Result<Customer> {
     let row_result = client
-        .query_one("SELECT * FROM customer WHERE pan_id = $1 AND first_name = $2 AND last_name = $3",
-        &[
-            &pan_id,
-            &first_name,
-            &last_name
-        ]).await;
+        .query_one("SELECT * FROM customer WHERE customer_reference_id = $1",
+        &[&customer_reference_id.to_string()]).await;
     if let Err(e) = row_result {
         return Err(e.into());
     }
