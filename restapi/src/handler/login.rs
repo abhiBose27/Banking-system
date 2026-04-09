@@ -1,9 +1,15 @@
 use std::{time::Duration};
 use actix_web::{HttpResponse, Responder, post, web};
 use chrono::Utc;
-use object::interfaces::{authentication::{JwtConfig, Role}, io::{DataKind, EventMessage, EventType, Service}, login::{LoginRequest, LoginResponse}, service_job::ServiceJob};
+use deadpool_redis::{Pool, redis::{AsyncTypedCommands}};
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
+
+use object::interfaces::{
+    authentication::{JwtConfig, Role}, 
+    io::{DataKind, EventMessage, EventType, Service}, 
+    login::{LoginRequest, LoginResponse}, service_job::ServiceJob
+};
 
 use crate::{authentication::{authentication::issue_jwt}};
 
@@ -12,8 +18,23 @@ use crate::{authentication::{authentication::issue_jwt}};
 async fn client_login(
     jwt: web::Data<JwtConfig>,
     tx: web::Data<Sender<ServiceJob>>,
-    api_obj: web::Json<LoginRequest>
+    api_obj: web::Json<LoginRequest>,
+    pool: web::Data<Pool>
 ) -> impl Responder {
+
+    let mut conn = match pool.get().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Error: Redis Unavailable"),
+    };
+    let exists= match conn.exists::<_>(&api_obj.username).await {
+        Ok(e) =>  e,
+        Err(_) => return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
+    };
+
+    if exists {
+        return HttpResponse::BadRequest().body("Already logged in");
+    }
+
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage { 
         data: EventType::Request { 
@@ -61,15 +82,28 @@ async fn client_login(
         Err(_) => return HttpResponse::RequestTimeout().body("Timed out") 
     };
 
+    let ttl_seconds = match login_user.role {
+        Role::Client => 5 * 60,  // 5 min
+        Role::Admin => 15 * 60, // 15 min
+    };
     let token = match issue_jwt(
         &jwt,
-        &login_user.id.to_string(),
-        if login_user.role == Role::Client {"client"} else {"admin"},
+        login_user.role,
+        login_user.id,
+        ttl_seconds,
         login_user.customer_id
     ) {
         Ok(t) => t,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     };
+
+    if let Err(_) = conn.set_ex::<_, _>(&api_obj.username, &token, ttl_seconds as u64).await {
+        return HttpResponse::InternalServerError().body("Error: Redis set failed");
+    }
+
+    if let Err(_) = conn.set_ex::<_, _>(&token, &api_obj.username, ttl_seconds as u64).await {
+        return HttpResponse::InternalServerError().body("Error: Redis set failed");
+    }
 
     HttpResponse::Ok().json(LoginResponse {
         access_token: token,

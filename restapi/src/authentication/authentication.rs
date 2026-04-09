@@ -16,33 +16,37 @@ use object::interfaces::authentication::{AuthContext, Claims, JwtConfig, Role};
 
 pub fn issue_jwt(
     cfg: &JwtConfig,
-    user_id: &str,
-    role: &str,                 // "client" or "admin"
+    role: Role, 
+    user_id: Uuid,
+    ttl_seconds: usize,
     customer_id: Option<Uuid>,
 ) -> Result<String, jsonwebtoken::errors::Error> {
     let now = Utc::now().timestamp() as usize;
 
-    let (aud, secret, ttl_secs) = match role {
-        "admin" => (&cfg.admin_aud, &cfg.admin_secret, 15 * 60),   // 15 min
-        _       => (&cfg.client_aud, &cfg.client_secret, 5 * 60) // 5 min
+    let (aud, secret) = match role {
+        Role::Admin => (&cfg.admin_aud, &cfg.admin_secret),   
+        Role::Client => (&cfg.client_aud, &cfg.client_secret)
     };
 
     let claims = Claims {
         sub: user_id.to_string(),
-        role: role.to_string(),
+        role: if role == Role::Client {"client".to_string()} else {"admin".to_string()},
         iss: cfg.issuer.clone(),
         aud: aud.to_string(),
-        exp: now + ttl_secs,
+        exp: now + ttl_seconds,
         customer_id
     };
-    encode(&Header::new(Algorithm::HS256),&claims,&EncodingKey::from_secret(secret))
+    let token = encode(
+        &Header::new(Algorithm::HS256), 
+        &claims,&EncodingKey::from_secret(secret)
+    ).unwrap();
+    Ok(token)
 }
 
 pub async fn internal_auth(
     mut req: ServiceRequest,
     next: Next<BoxBody>,
 ) -> Result<ServiceResponse, Error> {
-
     // ── 0. Allow unauthenticated handshake (optional)
     if req.method() == actix_web::http::Method::GET && req.path() == "/" {
         return next.call(req).await;
@@ -82,8 +86,6 @@ pub async fn internal_auth(
         }
     };
 
-    println!("{:?}", auth_ctx);
-
     // ── 4. Authorization rules (Model B)
     if matches!(auth_ctx.role, Role::Client) {
         let forbidden =
@@ -103,8 +105,6 @@ pub async fn internal_auth(
 
     // ── 6. Inject trusted auth context
     req.extensions_mut().insert(auth_ctx);
-    println!("{:?}", req);
-
     next.call(req).await
 }
 
@@ -159,8 +159,9 @@ fn verify_with_policy(
     };
 
     Ok(AuthContext {
-        user_id: data.claims.sub,
         role,
+        user_id: data.claims.sub,
+        token: token.to_string(),
         customer_id: data.claims.customer_id
     })
 }

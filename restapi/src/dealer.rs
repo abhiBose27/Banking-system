@@ -3,6 +3,8 @@ use actix_cors::Cors;
 use std::{collections::HashMap};
 use actix_web::{http::header::HeaderName, middleware, web, App, HttpServer};
 use tokio::{select, sync::mpsc, task};
+use deadpool_redis::{Config as RedisConfig, Runtime};
+
 
 use object::interfaces::{
     api_config::ApiConfig, authentication::JwtConfig, 
@@ -93,12 +95,16 @@ impl DealerService {
             admin_secret: "".as_bytes().to_vec()
         };
 
+        let cfg = RedisConfig::from_url("redis://127.0.0.1/");
+        let pool = cfg.create_pool(Some(Runtime::Tokio1)).expect("redis pool");
+
         HttpServer::new(move || {
             let x_total = HeaderName::from_lowercase(b"x-total").unwrap();
             let cors = Cors::permissive().expose_headers([x_total]);
             App::new()
                 .app_data(web::Data::new(self.tx_service.clone()))
                 .app_data(web::Data::new(jwt_cfg.clone()))
+                .app_data(web::Data::new(pool.clone()))
                 .wrap(cors)
                 .wrap(middleware::DefaultHeaders::new().add(("X-Version", "0.1")))
                 .wrap(middleware::Compress::default())
@@ -111,6 +117,7 @@ impl DealerService {
                 .service(
                     web::scope("/api")
                         .wrap(middleware::from_fn(internal_auth))
+                        .service(handler::logout::client_logout)
                         .service(handler::account::create)
                         .service(handler::customer::create)
                         .service(handler::transaction::create)

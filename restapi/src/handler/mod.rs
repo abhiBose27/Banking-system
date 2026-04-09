@@ -6,3 +6,4 @@ pub mod statement;
 pub mod deposit;
 pub mod login;
 pub mod signin;
+pub mod logout;

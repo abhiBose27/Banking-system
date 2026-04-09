@@ -1,17 +1,34 @@
 use std::time::Duration;
 use chrono::Utc;
+use deadpool_redis::{Pool, redis::AsyncTypedCommands};
 use uuid::Uuid;
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, post, web};
 use tokio::sync::{mpsc::Sender, oneshot};
 
-use object::interfaces::{account::AccountRequest, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob};
+use object::interfaces::{account::AccountRequest, authentication::AuthContext, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob};
 
 
 #[post("/account")]
 async fn create(
+    request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>, 
-    api_obj: web::Json<AccountRequest>
+    api_obj: web::Json<AccountRequest>,
+    pool: web::Data<Pool>
 ) -> impl Responder {
+    let auth = request.extensions().get::<AuthContext>().cloned().unwrap();
+    let mut conn = match pool.get().await {
+        Ok(c) => c,
+        Err(_) => return HttpResponse::InternalServerError().body("Error: Redis Unavailable"),
+    };
+    let exists= match conn.exists::<_>(&auth.token).await {
+        Ok(e) =>  e,
+        Err(_) => return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
+    };
+
+    if !exists {
+        return HttpResponse::BadRequest().body("Not logged in");
+    }
+    
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage { 
         data: EventType::Request { 
