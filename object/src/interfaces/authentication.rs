@@ -12,6 +12,7 @@ pub enum Role {
 pub struct AuthContext {
     pub user_id: String,
     pub role: Role,
+    pub token: String,
     pub customer_id: Option<Uuid>,
 }
 
