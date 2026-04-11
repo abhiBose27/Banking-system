@@ -6,6 +6,12 @@ use object::interfaces::{authentication::Role, io::DataKind, service_job::Servic
 
 use crate::{database::user::{add_user, get_user as get_user_db}, requests::customer::get_customer};
 
+fn verify_password(password: String, hash: String) -> bool {
+    let parsed = PasswordHash::new(&hash).unwrap();
+    let is_valid = Argon2::default().verify_password(password.as_bytes(), &parsed);
+    is_valid.is_ok()
+}
+
 pub async fn create_user(
     client: &Client, 
     tx_dealer: &Sender<ServiceJob>, 
@@ -30,12 +36,6 @@ pub async fn create_user(
     }
 }
 
-fn verify_password(password: String, hash: String) -> bool {
-    let parsed = PasswordHash::new(&hash).unwrap();
-    let is_valid = Argon2::default().verify_password(password.as_bytes(), &parsed);
-    is_valid.is_ok()
-}
-
 pub async fn get_user(
     client: &Client,
     username: String,
@@ -50,8 +50,5 @@ pub async fn get_user(
     if !verify_password(password, user.password_hash.clone()) {
         return (false, None, Some("Error: Invalid password".to_string()));
     }
-   /*  if !user.is_active {
-        return (false, None, Some("Error: Invalid credentials".to_string()));
-    } */
     (true, Some(DataKind::GetUserResponse { user }), None)
 }
