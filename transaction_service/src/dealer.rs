@@ -60,7 +60,7 @@ impl DealerService {
         client: &Client, 
         tx_dealer: &Sender<ServiceJob>, 
         data: DataKind, 
-        request_id: Uuid, 
+        id: Uuid, 
         customer_id: Option<Uuid>
     ) -> EventType {
         let (success, data, error_message) = match data {
@@ -73,7 +73,7 @@ impl DealerService {
             _  => panic!("Error: Invalid request received {ControllerRoute}")
         };
         EventType::Response { 
-            id: request_id, 
+            id, 
             success, 
             error_message, 
             data,
