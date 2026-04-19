@@ -73,10 +73,7 @@ pub async fn get_customer(
                 }
             }
         },
-        Ok(Err(e)) => {
-            eprintln!("Error: {e}");
-            None
-        },
+        Ok(Err(e)) => panic!("Error: {e}"),
         Err(e) => {
             eprintln!("Error: {e}");
             None
