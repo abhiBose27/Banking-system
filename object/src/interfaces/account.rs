@@ -21,5 +21,6 @@ pub struct Account {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountResponse {
     pub account_number: String,
+    pub balance: f64,
     pub creation_timestamp: DateTime<Utc>
 }

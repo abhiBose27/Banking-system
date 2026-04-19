@@ -5,5 +5,6 @@ use serde::{Deserialize, Serialize};
 pub struct ApiConfig {
     pub name: String,
     pub environment: String,
-    pub client_jwt_secret: String
+    pub client_jwt_secret: String,
+    pub api_key: String
 }

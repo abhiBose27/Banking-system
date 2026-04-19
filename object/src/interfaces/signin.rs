@@ -4,7 +4,7 @@ use ulid::Ulid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignInRequest {
-    pub customer_reference_id: Option<Ulid>,
+    pub customer_reference_id: Ulid,
     pub username: String,
     pub password: String
 }

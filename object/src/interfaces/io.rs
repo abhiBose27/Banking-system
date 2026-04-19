@@ -4,7 +4,12 @@ use ulid::Ulid;
 use uuid::Uuid;
 
 use crate::interfaces::{
-    account::{Account, AccountRequest, AccountResponse}, customer::{Customer, CustomerRequest, CustomerResponse}, deposit::{DepositRequest, DepositResponse}, statement::{StatementRequest, StatementResponse}, transaction::{TransactionRequest, TransactionResponse}, user::{User, UserRequest}
+    account::{Account, AccountRequest, AccountResponse}, 
+    customer::{Customer, CustomerRequest, CustomerResponse}, 
+    deposit::{DepositRequest, DepositResponse}, 
+    statement::{StatementRequest, StatementResponse}, 
+    transaction::{TransactionRequest, TransactionResponse}, 
+    user::{User, UserRequest}
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,13 +35,13 @@ pub enum EventType {
     Ping,
     Request {
         id: Uuid,
-        customer_id: Option<Uuid>,
         data: DataKind,
+        session_customer_id: Option<Uuid>
     },
     Response {
         id: Uuid,
         success: bool,
-        customer_id: Option<Uuid>,
+        session_customer_id: Option<Uuid>,
         error_message: Option<String>,
         data: Option<DataKind>
     }
@@ -45,17 +50,20 @@ pub enum EventType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DataKind {
     // Creator IO
+    CreateUser { user_request: UserRequest },
+    CreateDeposit { deposit_request: DepositRequest },
     CreateAccount { account_request: AccountRequest },
     CreateCustomer { customer_request: CustomerRequest },
     CreateTransaction { transaction_request: TransactionRequest },
     CreateTransactionResponse { transaction: TransactionResponse },
-    CreateDeposit { deposit_request: DepositRequest },
-    CreateUser { user_request: UserRequest },
 
     // Get IO
     GetAccount { account_number: String },
-    GetCustomer { customer_reference_id: Ulid },
     GetUser { username: String, password: String },
+    GetPvtCustomer { customer_reference_id: Option<Ulid> },
+    GetAccounts { customer_reference_id: Option<Ulid> },
+    GetCustomer { customer_reference_id: Option<Ulid> },
+    GetDeposits { customer_reference_id: Option<Ulid> },
     GetStatement { statement_request: StatementRequest },
 
     // Update IO
@@ -65,11 +73,15 @@ pub enum DataKind {
     // Response IO
     GetUserResponse { user: User },
     GetAccountResponse { account: Account },
-    GetCustomerResponse { customer: Customer },
+    GetCustomerPvtResponse { customer: Customer },
+    GetCustomerResponse { customer: CustomerResponse },
+    GetAccountsResponse { accounts: Vec<AccountResponse> },
+    GetDepositsResponse { deposits: Vec<DepositResponse> },
     GetStatementResponse { statement: Vec<StatementResponse> },
     CreateAccountResponse { account: AccountResponse },
     CreateCustomerResponse { customer: CustomerResponse },
     CreateDepositResponse { deposit: DepositResponse },
     CreateUserResponse,
+    UpdateBalanceResponse,
     CloseDepositResponse,
 }

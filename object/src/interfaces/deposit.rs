@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
-use ulid::Ulid;
 use uuid::Uuid;
 
 
@@ -38,7 +37,6 @@ pub struct DepositRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepositClose {
-    pub customer_reference_id: Ulid,
     pub deposit_number: String
 }
 
