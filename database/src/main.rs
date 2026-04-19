@@ -23,19 +23,19 @@ async fn main() -> Result<(), Error> {
             client.batch_execute(
                 "CREATE TABLE IF NOT EXISTS account(
                     id UUID PRIMARY KEY,
-                    customer_id UUID NOT NULL UNIQUE,
+                    customer_id UUID NOT NULL,
                     account_number TEXT NOT NULL UNIQUE,
                     balance DOUBLE PRECISION NOT NULL,
                     creation_timestamp TIMESTAMPTZ NOT NULL
                 );"
             ).await.unwrap();
             
-            client.batch_execute("
-                CREATE TABLE IF NOT EXISTS deposit_account(
+            client.batch_execute(
+                "CREATE TABLE IF NOT EXISTS deposit_account(
                     id UUID PRIMARY KEY,
                     status TEXT NOT NULL,
                     customer_id UUID NOT NULL,
-                    deposit_number TEXT NOT NULL,
+                    deposit_number TEXT NOT NULL UNIQUE,
                     linked_account_number TEXT NOT NULL,
                     principal_amount DOUBLE PRECISION NOT NULL,
                     interest_rate DOUBLE PRECISION NOT NULL,
@@ -66,8 +66,8 @@ async fn main() -> Result<(), Error> {
                 );"
             ).await.unwrap();
 
-            client.batch_execute("
-                CREATE TABLE IF NOT EXISTS transaction(
+            client.batch_execute(
+                "CREATE TABLE IF NOT EXISTS transaction(
                     id UUID PRIMARY KEY,
                     amount DOUBLE PRECISION NOT NULL,
                     reference_id TEXT NOT NULL UNIQUE,
@@ -77,13 +77,12 @@ async fn main() -> Result<(), Error> {
                 );"
             ).await.unwrap();
 
-            client.batch_execute("
-                CREATE TABLE IF NOT EXISTS db_user(
+            client.batch_execute(
+                "CREATE TABLE IF NOT EXISTS db_user(
                     id UUID PRIMARY KEY,
                     username TEXT NOT NULL UNIQUE,
                     password_hash TEXT NOT NULL UNIQUE,
-                    role TEXT NOT NULL,
-                    customer_id UUID UNIQUE 
+                    customer_id UUID NOT NULL UNIQUE 
                 );"
             ).await.unwrap();
         }
