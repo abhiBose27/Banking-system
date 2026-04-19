@@ -22,7 +22,7 @@ pub async fn get_customer(
         data: EventType::Request { 
             id: request_id,
             session_customer_id: None,
-            data: DataKind::GetPvtCustomer { customer_reference_id: Some(customer_reference_id) }
+            data: DataKind::GetCustomerPvt { customer_reference_id: Some(customer_reference_id) }
         },
         from: Service::User,
         to: Service::Account,

@@ -46,7 +46,7 @@ pub async fn add_user(
     let result = client.execute(
         "INSERT INTO db_user (
             id, username, password_hash, customer_id
-        ) VALUES ($1, $2, $3, $4, $5)", 
+        ) VALUES ($1, $2, $3, $4)", 
         &[
         &user.id,
         &user.username,

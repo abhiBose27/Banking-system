@@ -60,7 +60,7 @@ pub enum DataKind {
     // Get IO
     GetAccount { account_number: String },
     GetUser { username: String, password: String },
-    GetPvtCustomer { customer_reference_id: Option<Ulid> },
+    GetCustomerPvt { customer_reference_id: Option<Ulid> },
     GetAccounts { customer_reference_id: Option<Ulid> },
     GetCustomer { customer_reference_id: Option<Ulid> },
     GetDeposits { customer_reference_id: Option<Ulid> },
