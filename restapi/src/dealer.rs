@@ -7,12 +7,12 @@ use deadpool_redis::{Config as RedisConfig, Runtime};
 
 
 use object::interfaces::{
-    api_config::ApiConfig, authentication::JwtConfig, 
+    api_config::ApiConfig, authentication::{ApiKeyConfig, JwtConfig}, 
     dealer::Dealer, io::{EventMessage, EventType, Service}, 
     ports::Ports::{self, ControllerRoute}, service_job::ServiceJob
 };
 
-use crate::{authentication::authentication::{internal_auth}, handler, interfaces::dealer::DealerService};
+use crate::{authentication::authentication::{api_key_auth, internal_auth}, handler, interfaces::dealer::DealerService};
 
 
 impl DealerService {
@@ -47,6 +47,7 @@ impl DealerService {
             rx_service,
             id_to_tx_job,
             client_secret: api_config.client_jwt_secret,
+            api_key: api_config.api_key
         }
     }
 
@@ -67,7 +68,7 @@ impl DealerService {
                     Some(request_job) = rx_controller.recv() => {
                         let event_message = request_job.data.clone();
                         let tx_job = request_job.tx_job;
-                        if let EventType::Request { id, data:_, customer_id: _ } = event_message.data {
+                        if let EventType::Request { id, data:_, session_customer_id: _ } = event_message.data {
                             id_to_response_tx.insert(id, tx_job.unwrap());
                             println!("Sending request: {:?}", event_message);
                             if !dealer.send_event(event_message.clone()).await {
@@ -78,7 +79,7 @@ impl DealerService {
 
                     Some(event_message) = dealer.recv_event() => {
                         println!("Received response: {:?}", event_message.clone());
-                        if let EventType::Response { id, data: _, success:_, error_message: _ , customer_id: _} = event_message.data {
+                        if let EventType::Response { id, data: _, success:_, error_message: _ , session_customer_id: _} = event_message.data {
                             let response_tx = id_to_response_tx.remove(&id).unwrap();
                             response_tx.send(event_message.data.clone()).unwrap();
                         }
@@ -91,8 +92,12 @@ impl DealerService {
             client_secret: self.client_secret.into_bytes(),
             issuer: "bank-auth".to_string(),
             client_aud: "bank-clients".to_string(),
-            admin_aud:"bank-admin".to_string(), 
-            admin_secret: "".as_bytes().to_vec()
+            //admin_aud:"bank-admin".to_string(), 
+            //admin_secret: "".as_bytes().to_vec()
+        };
+
+        let api_key_config = ApiKeyConfig { 
+            private_key: self.api_key 
         };
 
         let cfg = RedisConfig::from_url("redis://127.0.0.1/");
@@ -104,27 +109,42 @@ impl DealerService {
             App::new()
                 .app_data(web::Data::new(self.tx_service.clone()))
                 .app_data(web::Data::new(jwt_cfg.clone()))
+                .app_data(web::Data::new(api_key_config.clone()))
                 .app_data(web::Data::new(pool.clone()))
                 .wrap(cors)
                 .wrap(middleware::DefaultHeaders::new().add(("X-Version", "0.1")))
                 .wrap(middleware::Compress::default())
                 .route("/", web::get().to(handler::handshake::handshake_handler))
                 .service(
-                    web::scope("/auth")
+                    web::scope("/client/auth")
                         .service(handler::login::client_login)
                         .service(handler::signin::client_signin)
                 )
                 .service(
-                    web::scope("/api")
+                    web::scope("/client/api")
                         .wrap(middleware::from_fn(internal_auth))
                         .service(handler::logout::client_logout)
-                        .service(handler::account::create)
-                        .service(handler::customer::create)
+                        .service(handler::account::get)
+                        .service(handler::customer::get)
                         .service(handler::transaction::create)
+                        .service(handler::deposit::get)
                         .service(handler::deposit::create)
                         .service(handler::deposit::delete)
                         .service(handler::statement::get)
 
+                )
+                .service(
+                    web::scope("/public/api")
+                        .wrap(middleware::from_fn(api_key_auth))
+                        .service(handler::account::create)
+                        .service(handler::account::get)
+                        .service(handler::customer::create)
+                        .service(handler::customer::get)
+                        .service(handler::transaction::create)
+                        .service(handler::deposit::get)
+                        .service(handler::deposit::create)
+                        .service(handler::deposit::delete)
+                        .service(handler::statement::get)
                 )
         })
         .bind(("0.0.0.0", 3003))?

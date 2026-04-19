@@ -15,13 +15,15 @@ async fn client_signin(
     tx: web::Data<Sender<ServiceJob>>,
     api_obj: web::Json<SignInRequest>
 ) -> impl Responder {
+
+    // Send a message to create a User
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage { 
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            customer_id: None,
+            session_customer_id: None,
             data: DataKind::CreateUser { user_request: UserRequest { 
-                username: api_obj.username.clone(), 
+                username: api_obj.username.clone(),
                 password: api_obj.password.clone(), 
                 customer_reference_id: api_obj.customer_reference_id.clone() }}
         }, 
@@ -38,26 +40,42 @@ async fn client_signin(
         return HttpResponse::InternalServerError().finish();
     }
     
+    // Wait for the response
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response {
-                EventType::Response { id:_, success, customer_id:_, error_message, data } => {
+                EventType::Response { id:_, success, session_customer_id:_, error_message, data } => {
                     match success {
                         true => {
                             match data {
                                 Some(d) => {
                                     match d {
                                         DataKind::CreateUserResponse => return HttpResponse::Ok().body("Added user"),
-                                        _ => return HttpResponse::InternalServerError().body("Internal Server Error"),
+                                        _ => {
+                                            eprintln!("Error: Invalid response received on create user endpoint");
+                                            return HttpResponse::InternalServerError().finish();
+                                        },
                                     }
                                 },
-                                None => return HttpResponse::InternalServerError().body(error_message.unwrap())
+                                None => {
+                                    eprintln!("Error: No response data received");
+                                    return HttpResponse::InternalServerError().finish();
+                                }
                             }
                         },
-                        false => return HttpResponse::InternalServerError().body(error_message.unwrap()),
+                        false => {
+                            if error_message.is_none() {
+                                eprintln!("Error: No error message received");
+                                return HttpResponse::InternalServerError().finish();
+                            }
+                            return HttpResponse::InternalServerError().body(error_message.unwrap());
+                        },
                     }
                 }
-                _ => panic!("Error: Unknown object received on API: {:?}", response.clone())
+                _ => {
+                    eprintln!("Error: Unknown object received on API: {:?}", response.clone());
+                    return HttpResponse::InternalServerError().finish();
+                }
             }
         }
         Ok(Err(_)) => return HttpResponse::InternalServerError().body("Worker failed"),
