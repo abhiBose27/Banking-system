@@ -1,4 +1,6 @@
 use chrono::Utc;
+use ulid::Ulid;
+use uuid::Uuid;
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
@@ -6,13 +8,12 @@ use object::interfaces::{
     deposit::{DepositRequest, DepositResponse, DepositTenure, InterestPayout}, 
     io::DataKind, 
     service_job::ServiceJob, 
-    transaction::{TransactionRequest}
+    transaction::TransactionRequest
 };
-use uuid::Uuid;
 
 use crate::{
-    database::deposit::{add_deposit, close_deposit as close_deposit_db, get_deposit}, 
-    requests::{account::get_account, transaction::make_transaction}
+    database::deposit::{add_deposit, close_deposit as close_deposit_db, get_deposit_from_deposit_number, get_deposits_from_customer_id}, 
+    requests::{account::get_account, customer::get_customer, transaction::make_transaction}
 };
 
 
@@ -37,20 +38,53 @@ fn is_valid_deposit_tenure(deposit_tenure: Option<DepositTenure>) -> bool {
     }
 }
 
+pub async fn get_deposits(
+    client: &Client,
+    tx_dealer: &Sender<ServiceJob>,
+    customer_reference_id: Option<Ulid>,
+    session_customer_id: Option<Uuid>
+) -> (bool, Option<DataKind>, Option<String>) {
+    let customer_result = get_customer(tx_dealer, customer_reference_id, session_customer_id).await;
+    if let None = customer_result {
+        return (false, None, Some("Error: Invalid parameters".to_string()));
+    }
+    let customer = customer_result.unwrap();
+    let deposits_result = get_deposits_from_customer_id(client, customer.id).await;
+    
+    if let Err(e) = deposits_result {
+        eprintln!("Error: {e}");
+        return (false, None, Some("Error: Invalid to fetch deposits".to_string()));
+    }
+    let deposits_response = deposits_result.unwrap().into_iter().map(|deposit| DepositResponse {
+        deposit_number: deposit.deposit_number,
+        linked_account_number: deposit.linked_account_number,
+        principal_amount: deposit.principal_amount,
+        interest_rate: deposit.interest_rate,
+        interest_payout: deposit.interest_payout,
+        auto_renewal: deposit.auto_renewal,
+        maturity_date: deposit.maturity_date,
+        deposit_tenure: deposit.deposit_tenure,
+        renewed_deposit_tenure: deposit.renewed_deposit_tenure,
+        creation_timestamp: deposit.creation_timestamp,
+    }).collect::<Vec<DepositResponse>>();
+    (true, Some(DataKind::GetDepositsResponse { deposits: deposits_response }), None)
+
+}
+
 pub async fn close_deposit(
     client: &Client,
     tx_dealer: &Sender<ServiceJob>,
     deposit_number: String,
-    customer_id: Option<Uuid>
+    session_customer_id: Option<Uuid>
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let deposit_result = get_deposit(client, deposit_number.clone()).await;
+    let deposit_result = get_deposit_from_deposit_number(client, deposit_number).await;
     if let Err(e) = deposit_result {
         eprintln!("Error: {e}");
         return (false, None, Some("Error: Invalid deposit_number".to_string()));
     }
 
     let deposit = deposit_result.unwrap();
-    if customer_id.is_some() && deposit.customer_id != customer_id.unwrap() {
+    if session_customer_id.is_some() && deposit.customer_id != session_customer_id.unwrap() {
         return (false, None, Some("Error: Invalid customer id".to_string()));
     }
 
@@ -67,7 +101,7 @@ pub async fn close_deposit(
         from_account_number: None,
         to_account_number: Some(deposit.linked_account_number.clone())
     };
-    let transaction_response = make_transaction(tx_dealer, transaction_request, customer_id).await;
+    let transaction_response = make_transaction(tx_dealer, transaction_request, session_customer_id).await;
     if let None = transaction_response {
         return (false, None, Some("Error: Unable to make transaction".to_string()));
     }
@@ -87,7 +121,7 @@ pub async fn create_deposit(
     client: &Client, 
     tx_dealer: &Sender<ServiceJob>, 
     deposit_request: DepositRequest,
-    customer_id: Option<Uuid>
+    session_customer_id: Option<Uuid>
 ) -> (bool, Option<DataKind>, Option<String>) {
     let deposit_request_clone = deposit_request.clone();
     let deposit_tenure = deposit_request_clone.deposit_tenure;
@@ -115,14 +149,11 @@ pub async fn create_deposit(
     }
 
     // Get the customer id from linked account number
-    let account_result = get_account(tx_dealer, deposit_request.linked_account_number.clone(), customer_id).await;
+    let account_result = get_account(tx_dealer, deposit_request.linked_account_number.clone(), session_customer_id).await;
     if let None = account_result {
         return (false, None, Some("Error: Cannot fetch account details".to_string()));
     }
     let account = account_result.unwrap();
-    if customer_id.is_some() && account.customer_id != customer_id.unwrap() {
-        return (false, None, Some("Error: Invalid customer id".to_string()));
-    }
 
     // Make the required transaction
     let transaction_request = TransactionRequest {
@@ -130,7 +161,7 @@ pub async fn create_deposit(
         from_account_number: Some(deposit_request.linked_account_number.clone()),
         to_account_number: None,
     };
-    let transaction_result = make_transaction(tx_dealer, transaction_request, customer_id).await;
+    let transaction_result = make_transaction(tx_dealer, transaction_request, session_customer_id).await;
     if let None = transaction_result {
         return (false, None, Some("Error: Cannot make transaction".to_string()));
     }

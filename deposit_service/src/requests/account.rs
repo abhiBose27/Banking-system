@@ -9,7 +9,7 @@ use object::interfaces::{account::Account, io::{DataKind, EventMessage, EventTyp
 pub async fn get_account(
     tx_dealer: &Sender<ServiceJob>, 
     account_number: String,
-    customer_id: Option<Uuid>
+    session_customer_id: Option<Uuid>
 ) ->  Option<Account> {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let request_id = Uuid::new_v4();
@@ -17,7 +17,7 @@ pub async fn get_account(
         data: EventType::Request { 
             id: request_id, 
             data: DataKind::GetAccount { account_number },
-            customer_id, 
+            session_customer_id, 
         },
         from: Service::Deposit,
         to: Service::Account,
@@ -34,18 +34,38 @@ pub async fn get_account(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response {
-                EventType::Response { id:_, success:_, error_message:_, data, customer_id: _ } => {
-                    match data {
-                        Some(d) => {
-                            match d {
-                                DataKind::GetAccountResponse { account } => Some(account),
-                                _ => panic!("Error: Invalid datakind received")
+                EventType::Response { id:_, success, error_message, data, session_customer_id: _ } => {
+                    match success {
+                        true => {
+                            match data {
+                                Some(d) => {
+                                    match d {
+                                        DataKind::GetAccountResponse { account } => Some(account),
+                                        _ => {
+                                            eprintln!("Error Invalid response received");
+                                            None
+                                        }
+                                    }
+                                }
+                                None => {
+                                    eprintln!("Error: No data received");
+                                    None
+                                }
                             }
-                        }
-                        None => None
+                        },
+                        false => {
+                             if error_message.is_none() {
+                                eprintln!("Error: No error message received");
+                            }
+                            eprintln!("Error {:?}", error_message.unwrap());
+                            None
+                        },
                     }
                 },
-                _ => panic!("Error: Invalid event received")
+                _ => {
+                    eprintln!("Error: Invalid event received");
+                    None
+                }
             }
         },
         Ok(Err(e)) => panic!("Error: {e}"),
