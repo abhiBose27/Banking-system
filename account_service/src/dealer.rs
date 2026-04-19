@@ -10,8 +10,8 @@ use object::interfaces::{
 
 use crate::{
     handlers::{
-        account::{create_account, get_account, update_balance}, 
-        customer::{create_customer, get_customer}
+        account::{create_account, get_accounts, get_account, update_balance}, 
+        customer::{create_customer, get_customer, get_customer_pvt}
     }, interfaces::dealer::DealerService
 };
 
@@ -58,7 +58,12 @@ impl DealerService {
         dealer
     }
 
-    async fn resolve_request(client: &Client, data: DataKind, request_id: Uuid, customer_id: Option<Uuid>) -> EventType {
+    async fn resolve_request(
+        id: Uuid, 
+        session_customer_id: Option<Uuid>, 
+        client: &Client, 
+        data: DataKind
+    ) -> EventType {
         let (success, data, error_message) = match data {
             DataKind::CreateAccount { account_request } => {
                 create_account(client, account_request).await
@@ -66,25 +71,30 @@ impl DealerService {
             DataKind::CreateCustomer { customer_request } => {
                 create_customer(client, customer_request).await
             },
-
-            // Exclusive IOs
             DataKind::UpdateBalance { account_number, balance } => {
-                update_balance(client, account_number, balance, customer_id).await
+                update_balance(client, account_number, balance, session_customer_id).await
             }
             DataKind::GetAccount { account_number } => {
-                get_account(client, account_number, customer_id).await
+                get_account(client, account_number, session_customer_id).await
+            }
+            DataKind::GetPvtCustomer { customer_reference_id } => {
+                get_customer_pvt(client, customer_reference_id, session_customer_id).await
             }
             DataKind::GetCustomer { customer_reference_id } => {
-                get_customer(client, customer_reference_id).await
+                get_customer(client, customer_reference_id, session_customer_id).await
             }
+            DataKind::GetAccounts { customer_reference_id } => {
+                get_accounts(client, customer_reference_id, session_customer_id).await
+            }
+
             _ => panic!("Error: Invalid request received {ControllerRoute}")
         };
         EventType::Response { 
-            id: request_id, 
+            id, 
             success, 
             error_message, 
             data,
-            customer_id
+            session_customer_id
         }
     }
 
@@ -104,9 +114,9 @@ impl DealerService {
         loop {
             if let Some(event_message) = dealer.recv_event().await {
                 println!("Received request: {:?}", event_message);
-                if let EventType::Request {id, data, customer_id } = event_message.data {
+                if let EventType::Request { id, data, session_customer_id } = event_message.data {
                     let response_message = EventMessage {
-                        data: Self::resolve_request(&client, data, id, customer_id).await,
+                        data: Self::resolve_request(id, session_customer_id, &client, data).await,
                         from: event_message.to,
                         to: event_message.from,
                         timestamp: Utc::now()

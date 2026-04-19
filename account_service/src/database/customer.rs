@@ -7,10 +7,34 @@ use anyhow::Result;
 use object::interfaces::customer::{Customer, CustomerRequest};
 
 
-pub async fn get_customer(client: &Client, customer_reference_id: Ulid) -> Result<Customer> {
+pub async fn get_customer_from_customer_reference_id(client: &Client, customer_reference_id: Ulid) -> Result<Customer> {
     let row_result = client
         .query_one("SELECT * FROM customer WHERE customer_reference_id = $1",
         &[&customer_reference_id.to_string()]).await;
+    if let Err(e) = row_result {
+        return Err(e.into());
+    }
+    let row = row_result.unwrap();
+    let customer_reference_id = Ulid::from_string(row.get("customer_reference_id")).unwrap();
+    let customer = Customer {
+        id: row.get("id"),
+        customer_reference_id,
+        first_name: row.get("first_name"),
+        last_name: row.get("last_name"),
+        pan_id: row.get("pan_id"),
+        email_id: row.get("email_id"),
+        age: row.get("age"),
+        date_of_birth: row.get("date_of_birth"),
+        contact_number: row.get("contact_number"),
+        creation_timestamp: row.get("creation_timestamp"),
+    };
+    Ok(customer)
+}
+
+pub async fn get_customer_from_customer_id(client: &Client, customer_id: Uuid) -> Result<Customer> {
+    let row_result = client
+        .query_one("SELECT * FROM customer WHERE customer_id = $1",
+        &[&customer_id.to_string()]).await;
     if let Err(e) = row_result {
         return Err(e.into());
     }

@@ -38,7 +38,27 @@ pub async fn add_account(client: &Client, customer_id: Uuid) -> Result<Account> 
     Ok(account)
 }
 
-pub async fn get_account(client: &Client, account_number: String) -> Result<Account> {
+pub async fn get_accounts_from_customer_id(client: &Client, customer_id: Uuid) -> Result<Vec<Account>> {
+    let row_result = client.query(
+        "SELECT * FROM account WHERE customer_id = $1", &[&customer_id]
+    ).await;
+     if let Err(e) = row_result {
+        return Err(e.into());
+    }
+    let row = row_result.unwrap();
+    let accounts = row.iter().map(|row| {
+        Account { 
+            id: row.get("id"),
+            customer_id: row.get("customer_id"),
+            account_number: row.get("account_number"),
+            balance: row.get("balance"),
+            creation_timestamp: row.get("creation_timestamp"),
+        }
+    }).collect::<Vec<Account>>();
+    Ok(accounts)
+}
+
+pub async fn get_account_from_account_number(client: &Client, account_number: String) -> Result<Account> {
     let row_result = client.query_one(
         "SELECT * FROM account WHERE account_number = $1",
         &[&account_number]
