@@ -21,8 +21,8 @@ pub async fn get_customer(
     let request = EventMessage {
         data: EventType::Request { 
             id: request_id,
-            customer_id: None,
-            data: DataKind::GetCustomer { customer_reference_id }
+            session_customer_id: None,
+            data: DataKind::GetPvtCustomer { customer_reference_id: Some(customer_reference_id) }
         },
         from: Service::User,
         to: Service::Account,
@@ -39,21 +39,44 @@ pub async fn get_customer(
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response {
-                EventType::Response { id:_, success:_, error_message:_, customer_id:_, data } => {
-                    match data {
-                        Some(d) => {
-                            match d {
-                                DataKind::GetCustomerResponse { customer } => Some(customer),
-                                _ => panic!("Error: Invalid datakind received")
+                EventType::Response { id:_, success, error_message, session_customer_id:_, data } => {
+                    match success {
+                        true => {
+                            match data {
+                                Some(d) => {
+                                    match d {
+                                        DataKind::GetCustomerPvtResponse { customer } => Some(customer),
+                                        _ => {
+                                            eprintln!("Error Invalid response received");
+                                            None
+                                        }
+                                    }
+                                }
+                                None => {
+                                    eprintln!("Error: No data received");
+                                    None
+                                }
                             }
-                        }
-                        None => None
+                        },
+                        false => {
+                            if error_message.is_none() {
+                                eprintln!("Error: No error message received");
+                            }
+                            eprintln!("Error {:?}", error_message.unwrap());
+                            None
+                        },
                     }
                 },
-                _ => panic!("Error: Invalid event received")
+                _ => {
+                    eprintln!("Error: Invalid event received");
+                    None
+                }
             }
         },
-        Ok(Err(e)) => panic!("Error: {e}"),
+        Ok(Err(e)) => {
+            eprintln!("Error: {e}");
+            None
+        },
         Err(e) => {
             eprintln!("Error: {e}");
             None

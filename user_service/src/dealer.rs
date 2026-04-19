@@ -69,7 +69,7 @@ impl DealerService {
         EventType::Response { 
             id: request_id, 
             success, 
-            customer_id, 
+            session_customer_id: customer_id, 
             error_message, 
             data 
         }
@@ -107,9 +107,9 @@ impl DealerService {
                 if let Some(message) = rx_incoming.recv().await {
                     let event_message = message.data;
                     println!("Received request {:?}", event_message);
-                    if let EventType::Request { id, customer_id, data } = event_message.data {
+                    if let EventType::Request { id, data, session_customer_id } = event_message.data {
                         let response_message = EventMessage {
-                            data: Self::resolve_request(&client, &tx_outgoing, data, id, customer_id).await,
+                            data: Self::resolve_request(&client, &tx_outgoing, data, id, session_customer_id).await,
                             from: event_message.to,
                             to: event_message.from,
                             timestamp: Utc::now(),
@@ -124,7 +124,7 @@ impl DealerService {
             select! {
                 Some(message) = rx_outgoing.recv() => {
                     let event_message = message.data;
-                    if let EventType::Request { id, customer_id: _, data: _ } = event_message.data {
+                    if let EventType::Request { id, session_customer_id: _, data: _ } = event_message.data {
                         let tx_job = message.tx_job;
                         id_to_tx_job.insert(id, tx_job.unwrap());
                     }
@@ -134,14 +134,14 @@ impl DealerService {
                 }
                 Some(message) = dealer.recv_event() => {
                     match message.data {
-                        EventType::Request { id:_, customer_id: _,data:_ } => {
+                        EventType::Request { id:_, session_customer_id:_, data:_ } => {
                             let service_job = ServiceJob { 
                                 tx_job: None, 
-                                data: message.clone() 
+                                data: message
                             };
                             tx_incoming.send(service_job).await.unwrap();
                         },
-                        EventType::Response { id, success:_, error_message:_, data:_, customer_id:_ } => {
+                        EventType::Response { id, success:_, error_message:_, data:_, session_customer_id:_ } => {
                             let tx_job = id_to_tx_job.remove(&id).unwrap();
                             tx_job.send(message.data.clone()).unwrap();
                         },
