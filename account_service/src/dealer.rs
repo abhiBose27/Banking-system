@@ -77,7 +77,7 @@ impl DealerService {
             DataKind::GetAccount { account_number } => {
                 get_account(client, account_number, session_customer_id).await
             }
-            DataKind::GetPvtCustomer { customer_reference_id } => {
+            DataKind::GetCustomerPvt { customer_reference_id } => {
                 get_customer_pvt(client, customer_reference_id, session_customer_id).await
             }
             DataKind::GetCustomer { customer_reference_id } => {

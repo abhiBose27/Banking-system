@@ -33,8 +33,8 @@ pub async fn get_customer_from_customer_reference_id(client: &Client, customer_r
 
 pub async fn get_customer_from_customer_id(client: &Client, customer_id: Uuid) -> Result<Customer> {
     let row_result = client
-        .query_one("SELECT * FROM customer WHERE customer_id = $1",
-        &[&customer_id.to_string()]).await;
+        .query_one("SELECT * FROM customer WHERE id = $1",
+        &[&customer_id]).await;
     if let Err(e) = row_result {
         return Err(e.into());
     }
