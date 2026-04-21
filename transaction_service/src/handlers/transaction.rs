@@ -18,38 +18,73 @@ pub async fn make_transaction(
     session_customer_id: Option<Uuid>,
     transaction_request: TransactionRequest, 
 ) -> (bool, Option<DataKind>, Option<String>) {
-      
-    if let Some(account_number) = transaction_request.from_account_number.clone() {
-        let account_result = get_account(tx_dealer, account_number.clone(), session_customer_id).await;
-        if let None = account_result {
-            return (false, None, Some("Error: Invalid credentials".to_string()));
-        }
-        let account = account_result.unwrap();
-        let new_balance = account.balance - transaction_request.amount;
-        if new_balance < 0.0 {
-            return (false, None, Some("Error: Insufficient Balance".to_string()));
-        }
-        if !update_balance(tx_dealer, account_number, new_balance, session_customer_id).await {
-            return (false, None, Some("Error: Cannot make transaction".to_string()));
-        }
-    }
-    if let Some(account_number) = transaction_request.to_account_number.clone() {
-        if let Some(from_account_number) = transaction_request.from_account_number.clone() {
-            if from_account_number == account_number {
+    let from_account_number = transaction_request.from_account_number.clone();
+    let to_account_number = transaction_request.to_account_number.clone();
+
+    match (from_account_number, to_account_number) {
+        (Some(from_account), Some(to_account)) => {
+            if from_account == to_account {
+                return (false, None, Some("Error: Invalid parameters".to_string()));
+            }
+            // Update From account
+            let account_result = get_account(tx_dealer, from_account.clone(), session_customer_id).await;
+            if let None = account_result {
                 return (false, None, Some("Error: Invalid credentials".to_string()));
             }
-        }
-        let account_result = get_account(tx_dealer, account_number.clone(), session_customer_id).await;
-        if let None = account_result {
-            return (false, None, Some("Error: Invalid credentials".to_string()));
-        }
-        let account = account_result.unwrap();
-        let new_balance = account.balance + transaction_request.amount;
-        if !update_balance(tx_dealer, account_number, new_balance, session_customer_id).await {
-            return (false, None, Some("Error: Cannot make transaction".to_string()));
-        }
-    }
-    match make_transaction_db(client, transaction_request.clone()).await {
+            let account = account_result.unwrap();
+            let new_balance = account.balance - transaction_request.amount;
+            if new_balance < 0.0 {
+                return (false, None, Some("Error: Insufficient Balance".to_string()));
+            }
+            if !update_balance(tx_dealer, from_account, new_balance, session_customer_id).await {
+                return (false, None, Some("Error: Cannot make transaction".to_string()));
+            }
+
+            // Update To Account
+            let account_result = get_account(tx_dealer, to_account.clone(), None).await;
+            if let None = account_result {
+                return (false, None, Some("Error: Invalid credentials".to_string()));
+            }
+            let account = account_result.unwrap();
+            let new_balance = account.balance + transaction_request.amount;
+            if !update_balance(tx_dealer, to_account, new_balance, None).await {
+                return (false, None, Some("Error: Cannot make transaction".to_string()));
+            }
+        },
+        (None, Some(to_account)) => {
+            if session_customer_id.is_some() {
+                return (false, None, Some("Error: Invalid parameters".to_string()));
+            }
+            let account_result = get_account(tx_dealer, to_account.clone(), None).await;
+            if let None = account_result {
+                return (false, None, Some("Error: Invalid credentials".to_string()));
+            }
+            let account = account_result.unwrap();
+            let new_balance = account.balance + transaction_request.amount;
+            if !update_balance(tx_dealer, to_account, new_balance, None).await {
+                return (false, None, Some("Error: Cannot make transaction".to_string()));
+            }
+        },
+        (Some(from_account), None) => {
+            if session_customer_id.is_some() {
+                return (false, None, Some("Error: Invalid parameters".to_string()));
+            }
+            let account_result = get_account(tx_dealer, from_account.clone(), None).await;
+            if let None = account_result {
+                return (false, None, Some("Error: Invalid credentials".to_string()));
+            }
+            let account = account_result.unwrap();
+            let new_balance = account.balance - transaction_request.amount;
+            if new_balance < 0.0 {
+                return (false, None, Some("Error: Insufficient Balance".to_string()));
+            }
+            if !update_balance(tx_dealer, from_account, new_balance, None).await {
+                return (false, None, Some("Error: Cannot make transaction".to_string()));
+            }
+        },
+        (None, None) => return (false, None, Some("Error: Invalid paramaters".to_string())),
+    };
+    match make_transaction_db(client, transaction_request).await {
         Ok(transaction) => {
             let transaction_response = TransactionResponse {
                 reference_id: transaction.reference_id,
