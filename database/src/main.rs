@@ -41,7 +41,7 @@ async fn main() -> Result<(), Error> {
                     interest_rate DOUBLE PRECISION NOT NULL,
                     deposit_tenure JSONB NOT NULL,
                     interest_payout TEXT NOT NULL,
-                    interest_amount_to_frequency JSONB NOT NULL,
+                    total_interest_amount DOUBLE PRECISION NOT NULL,
                     total_interest_paid DOUBLE PRECISION NOT NULL,
                     auto_renewal BOOLEAN NOT NULL,
                     renewed_deposit_tenure JSONB,
