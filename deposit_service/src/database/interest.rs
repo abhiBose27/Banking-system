@@ -33,12 +33,12 @@ pub async fn get_deposit_for_interest(client: &Client) -> Result<Vec<Deposit>> {
             creation_timestamp: row.get("creation_timestamp"),
             next_interest_date: row.get("next_interest_date"),
             maturity_date: row.get("maturity_date"),
-            interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
-            total_interest_paid: row.get("total_interest_paid"),
             renewed_deposit_tenure: match renewed_deposit_tenure_value {
                 Some(value) => serde_json::from_value(value).unwrap(),
                 None => None
-            }
+            },
+            total_interest_amount: row.get("total_interest_amount"),
+            total_interest_paid: row.get("total_interest_paid"),
         }
     }).collect::<Vec<Deposit>>();
     Ok(deposits)

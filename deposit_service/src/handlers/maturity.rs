@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
-use object::interfaces::{deposit::{DepositRequest, DepositResponse, InterestPayout}, service_job::ServiceJob, transaction::{TransactionRequest}};
+use object::interfaces::{deposit::{DepositRequest, DepositResponse}, service_job::ServiceJob, transaction::{TransactionRequest}};
 
 use crate::{
     database::{
@@ -12,22 +12,9 @@ use crate::{
 
 pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
     let deposit_for_maturity = get_deposit_for_maturity(client).await.unwrap();
-    for deposit in deposit_for_maturity {
-        let mut amount = 0.0;
-        
+    for deposit in deposit_for_maturity {        
         // Calculate the new amount
-        if deposit.interest_payout == InterestPayout::Renew {
-            let interest_amount_str = deposit.interest_amount_to_frequency
-            .iter()
-            .max_by_key(|(_, v)| *v)
-            .map(|(k, _)| k.clone()).unwrap();
-
-            let interest_amount = interest_amount_str.parse::<f64>().unwrap();
-            amount += interest_amount + deposit.principal_amount;
-        }
-        else {
-            amount += deposit.principal_amount;
-        }
+        let amount= deposit.principal_amount + (deposit.total_interest_amount - deposit.total_interest_paid);
 
         // Credit the new amount
         let transaction_request = TransactionRequest {
@@ -39,7 +26,7 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         if let None = transaction_response {
             eprintln!("Error: Unable to credit principal amount {} to {}", amount, deposit.linked_account_number);
             continue;
-        }
+        } 
         // Close the current deposit
         let close_deposit_response = close_deposit(client, deposit.id).await;
         if let Err(e) = close_deposit_response {
@@ -85,6 +72,7 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
                     deposit_tenure: new_deposit.deposit_tenure,
                     renewed_deposit_tenure: new_deposit.renewed_deposit_tenure,
                     creation_timestamp: new_deposit.creation_timestamp,
+                    total_interest_amount: new_deposit.total_interest_amount,
                 };
                 println!("Renewed deposit {:?}", deposit_response);
             },

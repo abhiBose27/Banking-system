@@ -20,10 +20,10 @@ use crate::{
 fn is_valid_interest_payout(interest_payout: InterestPayout, deposit_tenure: Option<DepositTenure>) -> bool {
     match deposit_tenure {
         Some(d) => {
-            let total_days = d.days + d.months * 30 + d.years * 365;
+            let total_days = d.days + d.months * 30 + d.years * 360;
             match interest_payout {
                 InterestPayout::Monthly => total_days >= 30,
-                InterestPayout::Quaterly => total_days >= 91,
+                InterestPayout::Quaterly => total_days >= 90,
                 _ => true,
             }
         },
@@ -66,6 +66,7 @@ pub async fn get_deposits(
         deposit_tenure: deposit.deposit_tenure,
         renewed_deposit_tenure: deposit.renewed_deposit_tenure,
         creation_timestamp: deposit.creation_timestamp,
+        total_interest_amount: deposit.total_interest_amount,
     }).collect::<Vec<DepositResponse>>();
     (true, Some(DataKind::GetDepositsResponse { deposits: deposits_response }), None)
 
@@ -88,20 +89,25 @@ pub async fn close_deposit(
         return (false, None, Some("Error: Invalid customer id".to_string()));
     }
 
+
+    /* let total_days = deposit.deposit_tenure.days + deposit.deposit_tenure.months * 30 + deposit.deposit_tenure.years * 360;
+    let annual_interest_amount = deposit.principal_amount * (deposit.interest_rate / 100.0);
+    let total_interest_paid = ((annual_interest_amount / 360.0) * total_days as f64) - deposit.interest_balance; */
+
     let current_date = Utc::now().date_naive();
     let creation_date = deposit.creation_timestamp.date_naive();
     let days_spanned = (current_date - creation_date).num_days();
-    let premature_interest = deposit.principal_amount * (days_spanned as f64) * (deposit.interest_rate / 100.0) / 365.0;
-    let paid_interest = deposit.total_interest_paid;
-    let difference = premature_interest - paid_interest;
+    let premature_interest = deposit.principal_amount * (deposit.interest_rate / 100.0) * (days_spanned as f64) / 360.0;
+    let difference = premature_interest - deposit.total_interest_paid;
     let total_to_pay = deposit.principal_amount + difference;
+    
 
     let transaction_request = TransactionRequest {
         amount: total_to_pay,
         from_account_number: None,
         to_account_number: Some(deposit.linked_account_number.clone())
     };
-    let transaction_response = make_transaction(tx_dealer, transaction_request, session_customer_id).await;
+    let transaction_response = make_transaction(tx_dealer, transaction_request, None).await;
     if let None = transaction_response {
         return (false, None, Some("Error: Unable to make transaction".to_string()));
     }
@@ -161,7 +167,7 @@ pub async fn create_deposit(
         from_account_number: Some(deposit_request.linked_account_number.clone()),
         to_account_number: None,
     };
-    let transaction_result = make_transaction(tx_dealer, transaction_request, session_customer_id).await;
+    let transaction_result = make_transaction(tx_dealer, transaction_request, None).await;
     if let None = transaction_result {
         return (false, None, Some("Error: Cannot make transaction".to_string()));
     }
@@ -180,6 +186,7 @@ pub async fn create_deposit(
                     deposit_tenure: deposit.deposit_tenure,
                     renewed_deposit_tenure: deposit.renewed_deposit_tenure,
                     creation_timestamp: deposit.creation_timestamp,
+                    total_interest_amount: deposit.total_interest_amount,
                 } 
             });
             (true, data, None)

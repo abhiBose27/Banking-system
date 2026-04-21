@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use chrono::{DateTime, Duration, Months, Utc};
 use tokio_postgres::Client;
 use uuid::Uuid;
@@ -37,24 +35,25 @@ pub fn get_next_interest_timestamp(
     }
     let interest_timestamp = current_timestamp;
     match interest_payout {
-        InterestPayout::Daily => {
-            if interest_timestamp + Duration::days(1 as i64) > maturity_timestamp {Some(maturity_timestamp)}
-            else {Some(interest_timestamp + Duration::days(1 as i64))}
-        },
-        InterestPayout::Monthly => {
-            if interest_timestamp + Months::new(1 as u32) > maturity_timestamp {Some(maturity_timestamp)}
-            else {Some(interest_timestamp + Months::new(1 as u32))}
-        },
-        InterestPayout::Quaterly => {
-            if interest_timestamp + Months::new(3 as u32) > maturity_timestamp {Some(maturity_timestamp)}
-            else {Some(interest_timestamp + Months::new(3 as u32))}
-        },
+        InterestPayout::Daily => Some(interest_timestamp + Duration::days(1 as i64)),
+        InterestPayout::Monthly => Some(interest_timestamp + Months::new(1 as u32)),
+        InterestPayout::Quaterly => Some(interest_timestamp + Months::new(3 as u32)),
         InterestPayout::Maturity => Some(maturity_timestamp),
         InterestPayout::Renew => None,
     }
 }
 
-fn get_interest_amount_to_frequency(
+fn get_total_interest_amount(
+    principal_amount: f64,
+    interest_rate: f64,
+    deposit_tenure: DepositTenure
+) -> f64 {
+    let total_days = deposit_tenure.days + deposit_tenure.months * 30 + deposit_tenure.years * 360;
+    let annual_interest_amount = principal_amount * (interest_rate / 100.0);
+    (annual_interest_amount / 360.0) * total_days as f64
+}
+
+/* fn get_interest_amount_to_frequency(
     principal_amount: f64,
     interest_rate: f64,
     interest_payout: InterestPayout,
@@ -100,7 +99,7 @@ fn get_interest_amount_to_frequency(
         },
     };
     hashmap
-}
+} */
 
 pub async fn close_deposit(
     client: &Client,
@@ -145,12 +144,12 @@ pub async fn get_deposit_from_deposit_number(
         next_interest_date: row.get("next_interest_date"),
         maturity_date: row.get("maturity_date"),
         auto_renewal: row.get("auto_renewal"),
-        interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
-        total_interest_paid: row.get("total_interest_paid"),
         renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
             Ok(v) => Some(v),
             Err(_) => None,
-        }
+        },
+        total_interest_amount: row.get("total_interest_amount"),
+        total_interest_paid: row.get("total_interest_paid"),
     };  
     Ok(deposit)
 }
@@ -182,12 +181,12 @@ pub async fn get_deposits_from_customer_id(
             next_interest_date: row.get("next_interest_date"),
             maturity_date: row.get("maturity_date"),
             auto_renewal: row.get("auto_renewal"),
-            interest_amount_to_frequency: serde_json::from_value(row.get("interest_amount_to_frequency")).unwrap(),
-            total_interest_paid: row.get("total_interest_paid"),
             renewed_deposit_tenure: match serde_json::from_value(row.get("deposit_tenure")) {
                 Ok(v) => Some(v),
                 Err(_) => None,
-            }
+            },
+            total_interest_amount: row.get("total_interest_amount"),
+            total_interest_paid: row.get("total_interest_paid"),
         }
     }).collect::<Vec<Deposit>>())
 }
@@ -195,30 +194,14 @@ pub async fn get_deposits_from_customer_id(
 pub async fn update_deposit(
     client: &Client, 
     deposit_id: Uuid,
-    interest_amount: f64,
     total_interest_paid: f64,
     next_interest_timestamp: Option<DateTime<Utc>>
 ) -> Result<()> {
     let next_interest_date = next_interest_timestamp.map(|d| d.date_naive());
-    let interest_amount_str = format!("{:.2}", interest_amount);
+    //let interest_amount_str = format!("{:.2}", interest_amount);
     let result = client
         .execute("UPDATE deposit_account SET next_interest_date = $1, total_interest_paid = $2 WHERE id = $3",
         &[&next_interest_date, &total_interest_paid, &deposit_id]
-    ).await;
-    if let Err(e) = result {
-        return  Err(e.into());
-    }
-    let result = client
-        .execute(
-            "UPDATE deposit_account
-            SET interest_amount_to_frequency = jsonb_set(
-                interest_amount_to_frequency,
-                ARRAY[$1]::text[],
-                to_jsonb((interest_amount_to_frequency->>$1)::int - 1),
-                true
-            )
-            WHERE id = $2", 
-        &[&interest_amount_str, &deposit_id]
     ).await;
     if let Err(e) = result {
         return  Err(e.into());
@@ -228,23 +211,18 @@ pub async fn update_deposit(
 
 pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: DepositRequest) -> Result<Deposit> {
     let interest_rate = 5.6;
-    let deposit_tenure = deposit_request.deposit_tenure;
-    let renewed_deposit_tenure = deposit_request.renewed_deposit_tenure;
-    let interest_payout = deposit_request.interest_payout;
     let deposit_id = Uuid::new_v4();
     let creation_timestamp = Utc::now();
-    let deposit_number = generate_account_number();
+    let deposit_tenure = deposit_request.deposit_tenure;
+    let interest_payout = deposit_request.interest_payout;
+    let renewed_deposit_tenure = deposit_request.renewed_deposit_tenure;
     let maturity_timestamp = get_maturity_timestamp(creation_timestamp, deposit_tenure.clone());
+    let total_interest_amount = get_total_interest_amount(deposit_request.principal_amount, interest_rate, deposit_tenure.clone());
     let next_interest_timestamp = get_next_interest_timestamp(creation_timestamp, maturity_timestamp, interest_payout.clone());
-    let interest_amount_to_frequency = get_interest_amount_to_frequency(
-        deposit_request.principal_amount, 
-        interest_rate, interest_payout.clone(), 
-        Some(deposit_tenure.clone())
-    );
     let deposit = Deposit {
         id: deposit_id,
         customer_id,
-        deposit_number,
+        deposit_number: generate_account_number(),
         linked_account_number: deposit_request.linked_account_number,
         principal_amount: deposit_request.principal_amount,
         interest_rate,
@@ -254,10 +232,10 @@ pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: De
         status: DepositStatus::Active,
         deposit_tenure,
         renewed_deposit_tenure,
-        interest_amount_to_frequency,
-        total_interest_paid: 0.0,
         next_interest_date: next_interest_timestamp.map(|d| d.date_naive()),
         maturity_date: maturity_timestamp.date_naive(),
+        total_interest_amount,
+        total_interest_paid: 0.0,
     };
 
     let result = client.execute("INSERT INTO deposit_account (
@@ -266,11 +244,11 @@ pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: De
         customer_id, 
         deposit_number, 
         linked_account_number, 
-        principal_amount, 
+        principal_amount,
         interest_rate,
         deposit_tenure,
         interest_payout,
-        interest_amount_to_frequency,
+        total_interest_amount,
         total_interest_paid,
         auto_renewal,
         renewed_deposit_tenure,
@@ -288,7 +266,7 @@ pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: De
         &deposit.interest_rate,
         &serde_json::to_value(&deposit.deposit_tenure).unwrap(),
         &serde_json::to_string(&deposit.interest_payout).unwrap(),
-        &serde_json::to_value(&deposit.interest_amount_to_frequency).unwrap(),
+        &deposit.total_interest_amount,
         &deposit.total_interest_paid,
         &deposit.auto_renewal,
         &serde_json::to_value(&deposit.renewed_deposit_tenure).unwrap(),
