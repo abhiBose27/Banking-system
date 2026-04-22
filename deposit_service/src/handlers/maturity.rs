@@ -15,8 +15,6 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
     for deposit in deposit_for_maturity {        
         // Calculate the new amount
         let amount= deposit.principal_amount + (deposit.total_interest_amount - deposit.total_interest_paid);
-
-        // Credit the new amount
         let transaction_request = TransactionRequest {
             amount,
             from_account_number: None,

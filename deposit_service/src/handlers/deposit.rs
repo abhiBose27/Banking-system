@@ -89,11 +89,6 @@ pub async fn close_deposit(
         return (false, None, Some("Error: Invalid customer id".to_string()));
     }
 
-
-    /* let total_days = deposit.deposit_tenure.days + deposit.deposit_tenure.months * 30 + deposit.deposit_tenure.years * 360;
-    let annual_interest_amount = deposit.principal_amount * (deposit.interest_rate / 100.0);
-    let total_interest_paid = ((annual_interest_amount / 360.0) * total_days as f64) - deposit.interest_balance; */
-
     let current_date = Utc::now().date_naive();
     let creation_date = deposit.creation_timestamp.date_naive();
     let days_spanned = (current_date - creation_date).num_days();
@@ -101,7 +96,6 @@ pub async fn close_deposit(
     let difference = premature_interest - deposit.total_interest_paid;
     let total_to_pay = deposit.principal_amount + difference;
     
-
     let transaction_request = TransactionRequest {
         amount: total_to_pay,
         from_account_number: None,
@@ -131,8 +125,8 @@ pub async fn create_deposit(
 ) -> (bool, Option<DataKind>, Option<String>) {
     let deposit_request_clone = deposit_request.clone();
     let deposit_tenure = deposit_request_clone.deposit_tenure;
-    let renewed_deposit_tenure = deposit_request_clone.renewed_deposit_tenure;
     let interest_payout = deposit_request_clone.interest_payout;
+    let renewed_deposit_tenure = deposit_request_clone.renewed_deposit_tenure;
 
     // Validate the deposit request
     if deposit_request_clone.auto_renewal && renewed_deposit_tenure.is_none() {

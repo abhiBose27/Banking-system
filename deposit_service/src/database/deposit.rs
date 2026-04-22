@@ -53,6 +53,16 @@ fn get_total_interest_amount(
     (annual_interest_amount / 360.0) * total_days as f64
 }
 
+fn get_interest_rate(
+    deposit_tenure: DepositTenure
+) -> f64 {
+    match deposit_tenure.years {
+        0 => 5.6,
+        1 => 7.5,
+        _ => 8.0
+    }
+}
+
 /* fn get_interest_amount_to_frequency(
     principal_amount: f64,
     interest_rate: f64,
@@ -198,7 +208,6 @@ pub async fn update_deposit(
     next_interest_timestamp: Option<DateTime<Utc>>
 ) -> Result<()> {
     let next_interest_date = next_interest_timestamp.map(|d| d.date_naive());
-    //let interest_amount_str = format!("{:.2}", interest_amount);
     let result = client
         .execute("UPDATE deposit_account SET next_interest_date = $1, total_interest_paid = $2 WHERE id = $3",
         &[&next_interest_date, &total_interest_paid, &deposit_id]
@@ -210,12 +219,12 @@ pub async fn update_deposit(
 }
 
 pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: DepositRequest) -> Result<Deposit> {
-    let interest_rate = 5.6;
     let deposit_id = Uuid::new_v4();
     let creation_timestamp = Utc::now();
     let deposit_tenure = deposit_request.deposit_tenure;
     let interest_payout = deposit_request.interest_payout;
     let renewed_deposit_tenure = deposit_request.renewed_deposit_tenure;
+    let interest_rate = get_interest_rate(deposit_tenure.clone());
     let maturity_timestamp = get_maturity_timestamp(creation_timestamp, deposit_tenure.clone());
     let total_interest_amount = get_total_interest_amount(deposit_request.principal_amount, interest_rate, deposit_tenure.clone());
     let next_interest_timestamp = get_next_interest_timestamp(creation_timestamp, maturity_timestamp, interest_payout.clone());
