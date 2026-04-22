@@ -16,7 +16,7 @@ use object::interfaces::{
 use crate::authentication::redis::is_logged_in_with_token;
 
 
-#[get("/account")]
+#[get("/accounts")]
 async fn get(
     request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
