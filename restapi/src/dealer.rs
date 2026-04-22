@@ -134,7 +134,7 @@ impl DealerService {
 
                 )
                 .service(
-                    web::scope("/public/api")
+                    web::scope("/admin/api")
                         .wrap(middleware::from_fn(api_key_auth))
                         .service(handler::account::create)
                         .service(handler::account::get)
