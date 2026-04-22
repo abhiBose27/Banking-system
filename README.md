@@ -4,12 +4,100 @@ A distributed microservices-based banking backend, built with Rust, ZeroMQ, Toki
 This system powers key banking operations such as customer management, account management, and transaction processing, all connected via a central Controller/Router service.
 
 ## Routes
+### /admin/api
+Requests under this route is authenticated using an API key which is declared as an environment variable. This route is for admin purposes and hence does not require login/logout mechanism.
+
+#### POST /account
+Create an account
+```
+Request: {
+    customer_reference_id: String<Ulid>
+}
+
+Respone: {
+       account_number: String,
+       balance: f64,
+       creation_timestamp: DateTime<Utc>
+}
+
+```
+
+#### POST /customer
+Create a customer
+```
+Request: {
+       first_name: String,
+       last_name: String,
+       pan_id: String,
+       email_id: String,
+       age: i64,
+       date_of_birth: NaiveDate,
+       contact_number: String
+}
+
+Response: {
+       customer_reference_id: Ulid,
+       first_name: String,
+       last_name: String,
+       pan_id: String,
+       email_id: String,
+       age: i64,
+       date_of_birth: NaiveDate,
+       contact_number: String,
+       creation_timestamp: DateTime<Utc>
+}
+```
+
+#### GET /accounts?customer_reference_id={id}
+Get all the accounts linked to customer reference id
+```
+Response: [{
+       account_number: String,
+       balance: f64,
+       creation_timestamp: DateTime<Utc> 
+}...]
+
+```
+
+#### GET /customer?customer_reference_id={id}
+Get the customer details linked to customer reference id
+```
+Response: {
+       customer_reference_id: Ulid,
+       first_name: String,
+       last_name: String,
+       pan_id: String,
+       email_id: String,
+       age: i64,
+       date_of_birth: NaiveDate,
+       contact_number: String,
+       creation_timestamp: DateTime<Utc>
+}
+```
+
+#### GET /statement
+Get the statement of an account
+```
+Request: {
+       account_number: String,
+       from_date: Option<NaiveDate>,
+       to_date: Option<NaiveDate>
+}
+
+Response: [{
+       date: NaiveDate,
+       amount: f64,
+       reference_id: Ulid,
+       from_account_number: Option<String>,
+       to_account_number: Option<String>,
+       transaction_type: TransactionType,
+}....]
+```
+
 ### /client/auth
 
 #### POST /signin
-
-An endpoint that signs up the client to the "user" database using "customer_reference_id" which is generated after creating a customer in the database.
-
+Sign up client
 ```
 Request: {
        "username": String,
@@ -19,9 +107,7 @@ Request: {
 ```
 
 #### POST /login
-
-An endpoint that logins the client, generating Bearer Token to provide access to service endpoints. The bearer token is stored in the Redis cache database for 5 minutes. 
-
+Login in to system as a client.
 ```
 Request {
        "username": String,
@@ -35,12 +121,10 @@ Response {
 ```
 
 ### /client/api
-
 All the requests under this route has a AuthContext header carrying the bearer token which is verified using the middleware.
-#### POST /logout
 
-This endpoint is used to logout before the token expires (5 * 60 ttl seconds). The token is deleted from the Redis cache aswell.
-### /admin/api
+#### POST /logout
+Logout of system as a client.
 
 ## 🧱 Architecture
 
