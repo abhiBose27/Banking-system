@@ -3,7 +3,7 @@
 A distributed microservices-based banking backend, built with Rust, ZeroMQ, Tokio, Actix-Web, Redis and PostgreSQL.
 This system powers key banking operations such as customer management, account management, and transaction processing, all connected via a central Controller/Router service.
 
-## Routes
+## Admin Routes
 ### /admin/api
 Requests under this route is authenticated using an API key which is declared as an environment variable. This route is for admin purposes and hence does not require login/logout mechanism.
 
@@ -94,6 +94,107 @@ Response: [{
 }....]
 ```
 
+#### POST /transaction
+Make a transaction
+```
+Request: {
+       amount: f64,
+       from_account_number: Option<String>,
+       to_account_number: Option<String>,
+}
+
+Response: {
+       reference_id: Ulid,
+       amount: f64,
+       from_account_number: Option<String>,
+       to_account_number: Option<String>,
+       transaction_timestamp: DateTime<Utc>
+}
+```
+
+#### POST /deposit
+```
+Request: {
+       linked_account_number: String,
+       principal_amount: f64,
+       deposit_tenure: DepositTenure,
+       interest_payout: InterestPayout,
+       auto_renewal: bool,
+       renewed_deposit_tenure: Option<DepositTenure>,
+}
+
+Response: {
+       deposit_number: String,
+       linked_account_number: String,
+       principal_amount: f64,
+       interest_rate: f64,
+       deposit_tenure: DepositTenure,
+       interest_payout: InterestPayout,
+       total_interest_amount: f64,
+       auto_renewal: bool,
+       renewed_deposit_tenure: Option<DepositTenure>,
+       maturity_date: NaiveDate,
+       creation_timestamp: DateTime<Utc>,
+}
+
+DepositTenure {
+       years: int,
+       months: int,
+       days: int
+}
+
+enum InterestPayout {
+       Daily,
+       Monthly,
+       Quaterly,
+       Maturity,
+       Renew
+}
+```
+
+#### DELETE /deposit
+Close a deposit
+
+```
+Request: {
+       deposit_number: String
+}
+```
+
+#### GET /deposits?customer_reference_id={id}
+Get all the active deposits linked to a customer reference id
+
+```
+Response: [{
+       pub deposit_number: String,
+       pub linked_account_number: String,
+       pub principal_amount: f64,
+       pub interest_rate: f64,
+       pub deposit_tenure: DepositTenure,
+       pub interest_payout: InterestPayout,
+       pub total_interest_amount: f64,
+       pub auto_renewal: bool,
+       pub renewed_deposit_tenure: Option<DepositTenure>,
+       pub maturity_date: NaiveDate,
+       pub creation_timestamp: DateTime<Utc>,
+}...]
+
+DepositTenure {
+       years: int,
+       months: int,
+       days: int
+}
+
+enum InterestPayout {
+       Daily,
+       Monthly,
+       Quaterly,
+       Maturity,
+       Renew
+}
+```
+
+## Client Routes
 ### /client/auth
 
 #### POST /signin
