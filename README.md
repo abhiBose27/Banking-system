@@ -10,16 +10,19 @@ This system powers key banking operations such as customer management, account m
 
 An endpoint that signs up the client to the "user" database using "customer_reference_id" which is generated after creating a customer in the database.
 
+```
 Request: {
        "username": String,
        "password": String,
        "customer_reference_id": String<Ulid>
 }
+```
 
 #### POST /login
 
 An endpoint that logins the client, generating Bearer Token to provide access to service endpoints. The bearer token is stored in the Redis cache database for 5 minutes. 
 
+```
 Request {
        "username": String,
        "password": String
@@ -29,6 +32,7 @@ Response {
        access_token: String,
        token_type: String
 }
+```
 
 ### /client/api
 
