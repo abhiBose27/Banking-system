@@ -3,7 +3,11 @@ use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
-use object::interfaces::{account::Account, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob};
+use object::interfaces::{
+    account::Account, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
+    service_job::ServiceJob
+};
 
 
 pub async fn get_account(
@@ -20,8 +24,8 @@ pub async fn get_account(
             data: DataKind::GetAccount { account_number },
             session_customer_id, 
         },
-        from: Service::Transaction,
-        to: Service::Account,
+        from: ServiceType::Transaction,
+        to: ServiceType::Account,
         timestamp: Utc::now()
     };
 

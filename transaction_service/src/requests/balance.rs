@@ -3,7 +3,10 @@ use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
-use object::interfaces::{io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob};
+use object::interfaces::{
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
+    service_job::ServiceJob
+};
 
 
 pub async fn update_balance(
@@ -20,8 +23,8 @@ pub async fn update_balance(
             data: DataKind::UpdateBalance { account_number, balance },
             session_customer_id, 
         },
-        from: Service::Transaction,
-        to: Service::Account,
+        from: ServiceType::Transaction,
+        to: ServiceType::Account,
         timestamp: Utc::now()
     };
 
