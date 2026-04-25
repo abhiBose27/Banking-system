@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::interfaces::{
     account::{Account, AccountRequest, AccountResponse}, 
     customer::{Customer, CustomerRequest, CustomerResponse}, 
-    deposit::{DepositRequest, DepositResponse}, 
+    deposit::{DepositClose, DepositRequest, DepositResponse}, 
     statement::{StatementRequest, StatementResponse}, 
     transaction::{TransactionRequest, TransactionResponse}, 
     user::{User, UserRequest}
@@ -15,13 +15,13 @@ use crate::interfaces::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventMessage {
     pub data: EventType,
-    pub from: Service,
-    pub to: Service,
+    pub from: ServiceType,
+    pub to: ServiceType,
     pub timestamp: DateTime<Utc>
 }
 
 #[derive(Debug, Hash, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum Service {
+pub enum ServiceType {
     Api,
     Account,
     Transaction,
@@ -49,26 +49,24 @@ pub enum EventType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DataKind {
-    // Creator IO
+    // Public IO
     CreateUser { user_request: UserRequest },
     CreateDeposit { deposit_request: DepositRequest },
     CreateAccount { account_request: AccountRequest },
     CreateCustomer { customer_request: CustomerRequest },
     CreateTransaction { transaction_request: TransactionRequest },
     CreateTransactionResponse { transaction: TransactionResponse },
-
-    // Get IO
-    GetAccount { account_number: String },
-    GetUser { username: String, password: String },
-    GetCustomerPvt { customer_reference_id: Option<Ulid> },
+    CloseDeposit { deposit_close: DepositClose },
     GetAccounts { customer_reference_id: Option<Ulid> },
     GetCustomer { customer_reference_id: Option<Ulid> },
     GetDeposits { customer_reference_id: Option<Ulid> },
     GetStatement { statement_request: StatementRequest },
 
-    // Update IO
-    CloseDeposit { deposit_number: String },
+    // Private IO
+    GetAccount { account_number: String },
+    GetUser { username: String, password: String },
     UpdateBalance { account_number: String, balance: f64 },
+    GetCustomerPvt { customer_reference_id: Option<Ulid> },
 
     // Response IO
     GetUserResponse { user: User },

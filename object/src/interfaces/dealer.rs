@@ -2,21 +2,21 @@ use std::time::Duration;
 use tokio::time::timeout;
 use zeromq::{DealerSocket, Socket, SocketRecv, SocketSend};
 
-use crate::interfaces::{io::EventMessage, ports::Ports};
+use crate::interfaces::io::EventMessage;
 
 pub struct Dealer {
-    port: Ports,
+    port: String,
     endpoint: String,
     socket: DealerSocket,
 }
 
 impl Dealer {
     pub async fn new(
-        domain: String, 
-        port: Ports,
+        host: String, 
+        port: String,
     ) -> Self {
         let socket = DealerSocket::new();
-        let endpoint = format!("{domain}:{port}");
+        let endpoint = format!("tcp://{host}:{port}");
         Dealer {
             port,
             endpoint,
