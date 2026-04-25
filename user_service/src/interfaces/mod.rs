@@ -1,1 +1,1 @@
-pub mod dealer;
+pub mod service;

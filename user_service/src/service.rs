@@ -6,15 +6,14 @@ use uuid::Uuid;
 
 use object::interfaces::{
     dealer::Dealer, 
-    io::{DataKind, EventMessage, EventType, Service}, 
-    ports::Ports::{self, ControllerRoute}, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_config::ServiceConfig, 
     service_job::ServiceJob
 };
 
-use crate::{handlers::user::{create_user, get_user}, interfaces::dealer::DealerService};
+use crate::{handlers::user::{create_user, get_user}, interfaces::service::Service};
 
-impl DealerService {
+impl Service {
 
     async fn connect_to_db(service_config: ServiceConfig) -> Client {
         let config_str = format!(
@@ -36,18 +35,18 @@ impl DealerService {
         client
     }
 
-    async fn connect(port: Ports) -> Dealer {
+    async fn connect(service_config: ServiceConfig) -> Dealer {
         let mut dealer = Dealer::new(
-            "tcp://localhost".to_string(), 
-            port
+            service_config.host, 
+            service_config.port
         ).await;
         if !dealer.connect().await {
             panic!("Error: Connection error with Controller");
         }
         let event_message = EventMessage {
             data: EventType::Ping,
-            from: Service::User,
-            to: Service::Controller,
+            from: ServiceType::User,
+            to: ServiceType::Controller,
             timestamp: Utc::now(),
         };
         if !dealer.send_event(event_message).await {
@@ -64,7 +63,7 @@ impl DealerService {
             DataKind::CreateUser { user_request } => {
                 create_user(client, tx_dealer, user_request).await
             }
-            _ => panic!("Error: Invalid request received {ControllerRoute}")
+            _ => panic!("Error: Invalid request received User Service")
         };
         EventType::Response { 
             id: request_id, 
@@ -76,8 +75,8 @@ impl DealerService {
     }
 
     pub async fn new(service_config: ServiceConfig) -> Self {
-        let client = Self::connect_to_db(service_config).await;
-        let dealer = Self::connect(ControllerRoute).await;
+        let client = Self::connect_to_db(service_config.clone()).await;
+        let dealer = Self::connect(service_config).await;
         let id_to_tx_job: HashMap<Uuid, tokio::sync::oneshot::Sender<EventType>> = HashMap::new();
         let (tx_incoming, rx_incoming) = mpsc::channel::<ServiceJob>(128);
         let (tx_outgoing, rx_outgoing) = mpsc::channel::<ServiceJob>(128);

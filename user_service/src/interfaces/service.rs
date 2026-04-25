@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 use tokio::sync::{mpsc::{Receiver, Sender}, oneshot};
 use tokio_postgres::Client;
-
-use object::interfaces::{dealer::Dealer, io::EventType, service_job::ServiceJob};
 use uuid::Uuid;
 
-pub struct DealerService {
+use object::interfaces::{dealer::Dealer, io::EventType, service_job::ServiceJob};
+
+pub struct Service {
     pub dealer: Dealer,
     pub client: Client,
     pub tx_incoming: Sender<ServiceJob>,
