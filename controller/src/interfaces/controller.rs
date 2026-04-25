@@ -3,9 +3,9 @@ use bytes::Bytes;
 use tokio::sync::Mutex;
 use zeromq::RouterSocket;
 
-use object::interfaces::io::Service;
+use object::interfaces::io::ServiceType;
 
-pub struct RouterService {
-    pub service_to_identity: Arc<Mutex<HashMap<Service, Bytes>>>,
+pub struct Controller {
+    pub service_to_identity: Arc<Mutex<HashMap<ServiceType, Bytes>>>,
     pub router: Arc<Mutex<RouterSocket>>,
 }

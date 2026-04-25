@@ -4,15 +4,17 @@ use tokio::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use zeromq::{RouterSocket, Socket, SocketRecv, SocketSend, ZmqMessage};
 
-use object::interfaces::{io::{EventMessage, EventType, Service}, ports::Ports::{self, ControllerRoute}};
+use object::interfaces::{io::{EventMessage, EventType, ServiceType}, controller_config::ControllerConfig};
 
-use crate::interfaces::router::RouterService;
+use crate::interfaces::controller::Controller;
 
 
-impl RouterService {
-    async fn bind(port: Ports) -> RouterSocket {
+impl Controller {
+    async fn bind(controller_config: ControllerConfig) -> RouterSocket {
+        let host = controller_config.host;
+        let port = controller_config.port;
         let mut api_listener_socket = RouterSocket::new();
-        let endpoint = format!("tcp://localhost:{port}");
+        let endpoint = format!("tcp://{host}:{port}");
         match api_listener_socket.bind(&endpoint).await {
             Ok(_) => {
                 println!("Listening to requests {port}");
@@ -38,11 +40,11 @@ impl RouterService {
 
     async fn register_services(&self) -> Result<()> {
         let mut services_to_register = vec![
-            Service::Api, 
-            Service::Account, 
-            Service::Transaction,
-            Service::Deposit,
-            Service::User
+            ServiceType::Api, 
+            ServiceType::Account, 
+            ServiceType::Transaction,
+            ServiceType::Deposit,
+            ServiceType::User
         ];
         println!("Services to register: {:?}", services_to_register);
         while !services_to_register.is_empty() {
@@ -68,9 +70,9 @@ impl RouterService {
         Ok(())
     }
 
-    pub async fn new() -> Self {
+    pub async fn new(controller_config: ControllerConfig) -> Self {
         let service_to_identity = HashMap::new();
-        let router = Self::bind(ControllerRoute).await;
+        let router = Self::bind(controller_config).await;
         Self {
             service_to_identity: Arc::new(Mutex::new(service_to_identity)),
             router: Arc::new(Mutex::new(router)),
