@@ -1,21 +1,20 @@
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, post, web};
 use deadpool_redis::Pool;
 
-use object::interfaces::authentication::{AuthContext};
+use object::interfaces::authentication::AuthContext;
 
-use crate::authentication::redis::{is_logged_in_with_token, logout_user};
+use crate::cache::redis::{is_logged_in_with_token, logout_user};
 
 
 #[post("/logout")]
 async fn client_logout(
     request: HttpRequest,
-    pool: web::Data<Pool>
+    redis_pool: web::Data<Pool>
 ) -> impl Responder {
-
     let auth = request.extensions().get::<AuthContext>().cloned().unwrap();
 
     // Get the connection from connection pool
-    let mut conn = match pool.get().await {
+    let mut conn = match redis_pool.get().await {
         Ok(c) => c,
         Err(e) => {
             eprintln!("Error: Redis Error {e}");

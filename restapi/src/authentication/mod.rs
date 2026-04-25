@@ -1,2 +1,2 @@
-pub mod authentication;
-pub mod redis;
+pub mod client;
+pub mod admin;

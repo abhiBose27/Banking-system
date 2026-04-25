@@ -1,74 +1,45 @@
 use std::{collections::HashMap, time::Duration};
+use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono::Utc;
-use deadpool_redis::Pool;
+use tokio::sync::{mpsc::Sender, oneshot};
 use ulid::Ulid;
 use uuid::Uuid;
-use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, get, post, web};
-use tokio::sync::{mpsc::Sender, oneshot};
 
 use object::interfaces::{
     account::AccountRequest, 
-    authentication::AuthContext, 
-    io::{DataKind, EventMessage, EventType, Service}, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob
 };
 
-use crate::authentication::redis::is_logged_in_with_token;
-
 
 #[get("/accounts")]
-async fn get(
-    request: HttpRequest,
+async fn get_accounts(
     tx: web::Data<Sender<ServiceJob>>,
-    query: web::Query<HashMap<String, String>>,
-    pool: web::Data<Pool>
+    query: web::Query<HashMap<String, String>>
 ) -> impl Responder {
-    let session_customer_id = match request.extensions().get::<AuthContext>().cloned() {
-        Some(auth_context) => {
-             let mut conn = match pool.get().await {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Error: Redis Error {e}");
-                    return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
-                }
-            };
-
-            // Check if the user is logged in
-            let is_logged_in = is_logged_in_with_token(&auth_context.token, &mut conn).await;
-            if let Err(e) = is_logged_in {
-                eprintln!("Error: Redis error {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-            if let false = is_logged_in.unwrap() {
-                return HttpResponse::BadRequest().body("Not logged in");
-            }
-            Some(auth_context.customer_id)
-        },
-        None => None,
-    };
-
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            session_customer_id, 
+            session_customer_id: None, 
             data: DataKind::GetAccounts { 
                 customer_reference_id: match query.get("customer_reference_id") {
                     Some(query) => match Ulid::from_string(query) {
                         Ok(id) => Some(id),
                         Err(e) => {
                             eprintln!("Error: {e}");
-                            return HttpResponse::BadRequest().body("Error: Invalid reference Id")
+                            return HttpResponse::BadRequest().body("Error: Invalid customer reference Id")
                         }
                     },
-                    None => None,
+                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
                 }
             },
         },
-        from: Service::Api,
-        to: Service::Account,
+        from: ServiceType::Api,
+        to: ServiceType::Account,
         timestamp: Utc::now()
     };
+
     let service_job = ServiceJob { 
         data: event_message,
         tx_job: Some(tx_job)
@@ -122,21 +93,19 @@ async fn get(
 }
 
 #[post("/account")]
-async fn create(
-    tx: web::Data<Sender<ServiceJob>>, 
-    api_obj: web::Json<AccountRequest>,
+async fn create_account(
+    tx: web::Data<Sender<ServiceJob>>,
+    payload: web::Json<AccountRequest>
 ) -> impl Responder {
-    
-    // Send the request to create an account
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage { 
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CreateAccount { account_request: api_obj.clone() },
+            data: DataKind::CreateAccount { account_request: payload.clone() },
             session_customer_id: None
         }, 
-        from: Service::Api, 
-        to: Service::Account, 
+        from: ServiceType::Api, 
+        to: ServiceType::Account, 
         timestamp: Utc::now() 
     };
     let service_job = ServiceJob { 
@@ -149,7 +118,7 @@ async fn create(
         return HttpResponse::InternalServerError().finish();
     }
 
-    // Wait for the response
+     // Wait for the response
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
             match response.clone() {

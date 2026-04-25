@@ -1,56 +1,58 @@
 use std::time::Duration;
+use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, get, web};
 use chrono::Utc;
 use deadpool_redis::Pool;
-use uuid::Uuid;
-use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, post, web};
 use tokio::sync::{mpsc::Sender, oneshot};
+use uuid::Uuid;
 
-use object::interfaces::{authentication::AuthContext, io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob, transaction::TransactionRequest};
+use object::interfaces::{
+    authentication::AuthContext, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, service_job::ServiceJob
+};
 
-use crate::authentication::redis::is_logged_in_with_token;
+use crate::cache::redis::is_logged_in_with_token;
 
-#[post("/transaction")]
-async fn create(
+
+
+#[get("/customer")]
+async fn get_customer(
     request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
-    api_obj: web::Json<TransactionRequest>,
-    pool: web::Data<Pool>
+    redis_pool: web::Data<Pool>
 ) -> impl Responder {
-    let session_customer_id = match request.extensions().get::<AuthContext>().cloned() {
-        Some(auth_context) => {
-            let mut conn = match pool.get().await {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Error: Redis Error {e}");
-                    return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
-                }
-            };
+    let auth_context = request.extensions().get::<AuthContext>().cloned();
+    if let None = auth_context {
+        return HttpResponse::BadRequest().body("Error: Unable to retrieve auth context")
+    }
+    let session_customer_id = Some(auth_context.clone().unwrap().customer_id);
 
-            // Check if the user is logged in
-            let is_logged_in = is_logged_in_with_token(&auth_context.token, &mut conn).await;
-            if let Err(e) = is_logged_in {
-                eprintln!("Error: Redis error {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-            if let false = is_logged_in.unwrap() {
-                return HttpResponse::BadRequest().body("Not logged in");
-            }
-            Some(auth_context.customer_id)
-        },
-        None => None,
+    let mut conn = match redis_pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Error: Redis Error {e}");
+            return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
+        }
     };
 
-    // Send the request for making a transaction
+    // Check if the user is logged in
+    let is_logged_in = is_logged_in_with_token(&auth_context.unwrap().token, &mut conn).await;
+    if let Err(e) = is_logged_in {
+        eprintln!("Error: Redis error {e}");
+        return HttpResponse::InternalServerError().finish();
+    }
+    if let false = is_logged_in.unwrap() {
+        return HttpResponse::BadRequest().body("Not logged in");
+    }
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
-    let event_message = EventMessage { 
+    let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CreateTransaction { transaction_request: api_obj.clone() },
+            data: DataKind::GetCustomer { customer_reference_id: None }, 
             session_customer_id
-        }, 
-        from: Service::Api, 
-        to: Service::Transaction, 
-        timestamp: Utc::now() 
+        },
+        from: ServiceType::Api,
+        to: ServiceType::Account,
+        timestamp: Utc::now()
     };
 
     let service_job = ServiceJob { 
@@ -63,19 +65,18 @@ async fn create(
         return HttpResponse::InternalServerError().finish();
     }
 
-    // Wait for the response
     match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
         Ok(Ok(response)) => {
-            match response.clone() {
-                EventType::Response { id: _, success, error_message, data , session_customer_id: _} => {
+            match response {
+                EventType::Response { id: _, success, session_customer_id: _, error_message, data } => {
                     match success {
                         true => {
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::CreateTransactionResponse { transaction } => return HttpResponse::Ok().body(serde_json::to_string(&transaction).unwrap()),
+                                        DataKind::GetCustomerResponse { customer } => return HttpResponse::Ok().body(serde_json::to_string(&customer).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting User");
+                                            eprintln!("Error: Invalid response received for getting deposits");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }

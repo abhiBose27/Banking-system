@@ -8,27 +8,30 @@ use deadpool_redis::{Config as RedisConfig, Runtime};
 
 use object::interfaces::{
     api_config::ApiConfig, authentication::{ApiKeyConfig, JwtConfig}, 
-    dealer::Dealer, io::{EventMessage, EventType, Service}, 
-    ports::Ports::{self, ControllerRoute}, service_job::ServiceJob
+    dealer::Dealer, io::{EventMessage, EventType, ServiceType}, 
+    service_job::ServiceJob
 };
 
-use crate::{authentication::authentication::{api_key_auth, internal_auth}, handler, interfaces::dealer::DealerService};
+use crate::{
+    authentication::{client::authentication::client_auth, admin::authentication::admin_auth}, 
+    handler, interfaces::service::Service
+};
 
 
-impl DealerService {
+impl Service {
     
-    async fn connect(port: Ports) -> Dealer {
+    async fn connect(api_config: ApiConfig) -> Dealer {
         let mut dealer = Dealer::new(
-            "tcp://localhost".to_string(), 
-            port,
+            api_config.host, 
+            api_config.port,
         ).await;
         if !dealer.connect().await {
             panic!("Error: Connection error with Controller");
         }
         let event_message = EventMessage {
             data: EventType::Ping,
-            from: Service::Api,
-            to: Service::Controller,
+            from: ServiceType::Api,
+            to: ServiceType::Controller,
             timestamp: Utc::now()
         };
         if !dealer.send_event(event_message).await {
@@ -38,7 +41,7 @@ impl DealerService {
     }
 
     pub async fn new(api_config: ApiConfig) -> Self {
-        let dealer = Self::connect(ControllerRoute).await;
+        let dealer = Self::connect(api_config.clone()).await;
         let (tx_service, rx_service) = mpsc::channel::<ServiceJob>(128);
         let id_to_tx_job = HashMap::new();
         Self {
@@ -47,7 +50,11 @@ impl DealerService {
             rx_service,
             id_to_tx_job,
             client_secret: api_config.client_jwt_secret,
-            api_key: api_config.api_key
+            api_key: api_config.api_key,
+            redis_host: api_config.redis_host,
+            server_host: api_config.server_host,
+            server_port: api_config.server_port,
+            
         }
     }
 
@@ -100,7 +107,9 @@ impl DealerService {
             private_key: self.api_key 
         };
 
-        let cfg = RedisConfig::from_url("redis://127.0.0.1/");
+        let redis_endpoint = format!("redis://{}/", self.redis_host);
+        let server_endpoint = format!("{}:{}", self.server_host, self.server_port);
+        let cfg = RedisConfig::from_url(redis_endpoint);
         let pool = cfg.create_pool(Some(Runtime::Tokio1)).expect("redis pool");
 
         HttpServer::new(move || {
@@ -117,37 +126,36 @@ impl DealerService {
                 .route("/", web::get().to(handler::handshake::handshake_handler))
                 .service(
                     web::scope("/client/auth")
-                        .service(handler::login::client_login)
-                        .service(handler::signin::client_signin)
+                        .service(handler::client::login::client_login)
+                        .service(handler::client::logout::client_logout)
                 )
                 .service(
                     web::scope("/client/api")
-                        .wrap(middleware::from_fn(internal_auth))
-                        .service(handler::logout::client_logout)
-                        .service(handler::account::get)
-                        .service(handler::customer::get)
-                        .service(handler::transaction::create)
-                        .service(handler::deposit::get)
-                        .service(handler::deposit::create)
-                        .service(handler::deposit::delete)
-                        .service(handler::statement::get)
-
+                        .wrap(middleware::from_fn(client_auth))
+                        .service(handler::client::logout::client_logout)
+                        .service(handler::client::account::get_accounts)
+                        .service(handler::client::customer::get_customer)
+                        .service(handler::client::deposit::get_deposits)
+                        .service(handler::client::deposit::create_deposit)
+                        .service(handler::client::deposit::delete_deposit)
+                        .service(handler::client::transaction::create_transaction)
+                        .service(handler::client::statement::get_statement)
                 )
                 .service(
                     web::scope("/admin/api")
-                        .wrap(middleware::from_fn(api_key_auth))
-                        .service(handler::account::create)
-                        .service(handler::account::get)
-                        .service(handler::customer::create)
-                        .service(handler::customer::get)
-                        .service(handler::transaction::create)
-                        .service(handler::deposit::get)
-                        .service(handler::deposit::create)
-                        .service(handler::deposit::delete)
-                        .service(handler::statement::get)
+                        .wrap(middleware::from_fn(admin_auth))
+                        .service(handler::admin::account::get_accounts)
+                        .service(handler::admin::account::create_account)
+                        .service(handler::admin::customer::get_customer)
+                        .service(handler::admin::customer::create_customer)
+                        .service(handler::admin::transaction::create_transaction)
+                        .service(handler::admin::deposit::get_deposits)
+                        .service(handler::admin::deposit::create_deposit)
+                        .service(handler::admin::deposit::close_deposit)
+                        .service(handler::admin::statement::get_statement)
                 )
         })
-        .bind(("0.0.0.0", 3003))?
+        .bind(server_endpoint)?
         .run()
         .await
     }

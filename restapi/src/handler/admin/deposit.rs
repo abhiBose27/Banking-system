@@ -1,72 +1,42 @@
-use chrono::Utc;
 use std::{collections::HashMap, time::Duration};
-use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, delete, get, post, web};
-use deadpool_redis::Pool;
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
+use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use ulid::Ulid;
 use uuid::Uuid;
 
 use object::interfaces::{
-    authentication::AuthContext, 
     deposit::{DepositClose, DepositRequest}, 
-    io::{DataKind, EventMessage, EventType, Service}, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob
 };
 
-use crate::authentication::redis::is_logged_in_with_token;
 
 #[get("/deposits")]
-async fn get(
-    request: HttpRequest,
+async fn get_deposits(
     tx: web::Data<Sender<ServiceJob>>,
-    query: web::Query<HashMap<String, String>>,
-    pool: web::Data<Pool>
+    query: web::Query<HashMap<String, String>>
 ) -> impl Responder {
-    let session_customer_id = match request.extensions().get::<AuthContext>().cloned() {
-        Some(auth_context) => {
-             let mut conn = match pool.get().await {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Error: Redis Error {e}");
-                    return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
-                }
-            };
-
-            // Check if the user is logged in
-            let is_logged_in = is_logged_in_with_token(&auth_context.token, &mut conn).await;
-            if let Err(e) = is_logged_in {
-                eprintln!("Error: Redis error {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-            if let false = is_logged_in.unwrap() {
-                return HttpResponse::BadRequest().body("Not logged in");
-            }
-            Some(auth_context.customer_id)
-        },
-        None => None,
-    };
-
-
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            session_customer_id, 
+            session_customer_id: None, 
             data: DataKind::GetDeposits { 
                 customer_reference_id: match query.get("customer_reference_id") {
                     Some(query) => match Ulid::from_string(query) {
                         Ok(id) => Some(id),
                         Err(e) => {
                             eprintln!("Error: {e}");
-                            return HttpResponse::BadRequest().body("Error: Invalid reference Id")
+                            return HttpResponse::BadRequest().body("Error: Invalid customer reference Id")
                         }
                     },
-                    None => None,
+                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
                 }
             },
         },
-        from: Service::Api,
-        to: Service::Deposit,
+        from: ServiceType::Api,
+        to: ServiceType::Deposit,
         timestamp: Utc::now()
     };
     let service_job = ServiceJob { 
@@ -119,51 +89,22 @@ async fn get(
         Ok(Err(_)) => HttpResponse::InternalServerError().body("Worker failed"),
         Err(_) => HttpResponse::RequestTimeout().body("Timed out"),
     }
-    
 }
 
-
 #[post("/deposit")]
-async fn create(
-    request: HttpRequest,
+async fn create_deposit(
     tx: web::Data<Sender<ServiceJob>>,
-    api_obj: web::Json<DepositRequest>,
-    pool: web::Data<Pool>
+    payload: web::Json<DepositRequest>,
 ) -> impl Responder {
-    let session_customer_id = match request.extensions().get::<AuthContext>().cloned() {
-        Some(auth_context) => {
-             let mut conn = match pool.get().await {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Error: Redis Error {e}");
-                    return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
-                }
-            };
-
-            // Check if the user is logged in
-            let is_logged_in = is_logged_in_with_token(&auth_context.token, &mut conn).await;
-            if let Err(e) = is_logged_in {
-                eprintln!("Error: Redis error {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-            if let false = is_logged_in.unwrap() {
-                return HttpResponse::BadRequest().body("Not logged in");
-            }
-            Some(auth_context.customer_id)
-        },
-        None => None,
-    };
-
-    // Send the request to create a deposit
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::CreateDeposit{ deposit_request: api_obj.clone() },
-            session_customer_id
+            data: DataKind::CreateDeposit{ deposit_request: payload.clone() },
+            session_customer_id: None
         },
-        from: Service::Api,
-        to: Service::Deposit,
+        from: ServiceType::Api,
+        to: ServiceType::Deposit,
         timestamp: Utc::now()
     };
     let service_job = ServiceJob { 
@@ -217,50 +158,22 @@ async fn create(
         Ok(Err(_)) => HttpResponse::InternalServerError().body("Worker failed"),
         Err(_) => HttpResponse::RequestTimeout().body("Timed out"),
     }
-    
 }
 
-
 #[delete("/deposit")]
-async fn delete(
-    request: HttpRequest,
+async fn close_deposit(
     tx: web::Data<Sender<ServiceJob>>,
-    api_obj: web::Json<DepositClose>,
-    pool: web::Data<Pool>
+    payload: web::Json<DepositClose>,
 ) -> impl Responder {
-    let session_customer_id = match request.extensions().get::<AuthContext>().cloned() {
-        Some(auth_context) => {
-             let mut conn = match pool.get().await {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Error: Redis Error {e}");
-                    return HttpResponse::InternalServerError().body("Error: Redis Unavailable")
-                }
-            };
-
-            // Check if the user is logged in
-            let is_logged_in = is_logged_in_with_token(&auth_context.token, &mut conn).await;
-            if let Err(e) = is_logged_in {
-                eprintln!("Error: Redis error {e}");
-                return HttpResponse::InternalServerError().finish();
-            }
-            if let false = is_logged_in.unwrap() {
-                return HttpResponse::BadRequest().body("Not logged in");
-            }
-            Some(auth_context.customer_id)
-        },
-        None => None,
-    };
-
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
-            id: Uuid::new_v4(), 
-            data: DataKind::CloseDeposit { deposit_number: api_obj.deposit_number.clone() },
-            session_customer_id
+            id: Uuid::new_v4(),
+            session_customer_id: None,
+            data: DataKind::CloseDeposit { deposit_close: payload.clone() },
         },
-        from: Service::Api,
-        to: Service::Deposit,
+        from: ServiceType::Api,
+        to: ServiceType::Deposit,
         timestamp: Utc::now()
     };
     let service_job = ServiceJob { 
@@ -313,5 +226,4 @@ async fn delete(
         Ok(Err(_)) => HttpResponse::InternalServerError().body("Worker failed"),
         Err(_) => HttpResponse::RequestTimeout().body("Timed out"),
     }
-    
 }

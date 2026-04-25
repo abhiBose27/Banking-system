@@ -1,21 +1,20 @@
 use std::time::Duration;
-use chrono::Utc;
-use uuid::Uuid;
-use tokio::sync::{mpsc::Sender, oneshot};
 use actix_web::{HttpResponse, Responder, post, web};
+use chrono::Utc;
+use tokio::sync::{mpsc::Sender, oneshot};
+use uuid::Uuid;
 
 use object::interfaces::{
-    io::{DataKind, EventMessage, EventType, Service}, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob, signin::SignInRequest, user::UserRequest
 };
 
 
-#[post("/signin")]
-async fn client_signin(
+#[post("/signup")]
+async fn client_signup(
     tx: web::Data<Sender<ServiceJob>>,
-    api_obj: web::Json<SignInRequest>
+    payload: web::Json<SignInRequest>
 ) -> impl Responder {
-
     // Send a message to create a User
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage { 
@@ -23,12 +22,12 @@ async fn client_signin(
             id: Uuid::new_v4(), 
             session_customer_id: None,
             data: DataKind::CreateUser { user_request: UserRequest { 
-                username: api_obj.username.clone(),
-                password: api_obj.password.clone(), 
-                customer_reference_id: api_obj.customer_reference_id.clone() }}
+                username: payload.username.clone(),
+                password: payload.password.clone(), 
+                customer_reference_id: payload.customer_reference_id.clone() }}
         }, 
-        from: Service::Api, 
-        to: Service::User, 
+        from: ServiceType::Api, 
+        to: ServiceType::User, 
         timestamp: Utc::now() 
     };
     let service_job = ServiceJob { 
