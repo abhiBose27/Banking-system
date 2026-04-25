@@ -7,18 +7,18 @@ use tokio_postgres::{Client, NoTls, connect};
 
 use object::interfaces::{
     dealer::Dealer, 
-    io::{DataKind, EventMessage, EventType, Service}, 
-    ports::Ports::{self, ControllerRoute}, service_config::ServiceConfig, service_job::ServiceJob
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
+    service_config::ServiceConfig, service_job::ServiceJob
 };
 
 use crate::{
     handlers::{deposit::{close_deposit, create_deposit, get_deposits}, 
     interest::process_interests, maturity::process_maturity}, 
-    interfaces::dealer::DealerService
+    interfaces::service::Service
 };
 
 
-impl DealerService {
+impl Service {
     async fn connect_to_db(service_config: ServiceConfig) -> Client {
         let config_str = format!(
             "host={0} user={1} password={2} dbname={3}",                    
@@ -39,18 +39,18 @@ impl DealerService {
         client
     }
 
-    async fn connect(port: Ports) -> Dealer {
+    async fn connect(service_config: ServiceConfig) -> Dealer {
         let mut dealer = Dealer::new(
-            "tcp://localhost".to_string(), 
-            port
+            service_config.host, 
+            service_config.port
         ).await;
         if !dealer.connect().await {
             panic!("Error: Connection error with Controller");
         }
         let event_message = EventMessage {
             data: EventType::Ping,
-            from: Service::Deposit,
-            to: Service::Controller,
+            from: ServiceType::Deposit,
+            to: ServiceType::Controller,
             timestamp: Utc::now(),
         };
         if !dealer.send_event(event_message).await {
@@ -70,13 +70,13 @@ impl DealerService {
             DataKind::CreateDeposit { deposit_request } => {
                 create_deposit(client, tx_dealer, deposit_request, session_customer_id).await
             },
-            DataKind::CloseDeposit { deposit_number } => {
-                close_deposit(client, tx_dealer, deposit_number, session_customer_id).await
+            DataKind::CloseDeposit { deposit_close } => {
+                close_deposit(client, tx_dealer, deposit_close, session_customer_id).await
             },
             DataKind::GetDeposits { customer_reference_id } => {
                 get_deposits(client, tx_dealer, customer_reference_id, session_customer_id).await
             }
-            _  => panic!("Error: Invalid request received {ControllerRoute}")
+            _  => panic!("Error: Invalid request received on Deposit Service")
         };
         EventType::Response { 
             id: request_id, 
@@ -88,8 +88,8 @@ impl DealerService {
     }
 
     pub async fn new(service_config: ServiceConfig) -> Self {
-        let client = Self::connect_to_db(service_config).await;
-        let dealer = Self::connect(ControllerRoute).await;
+        let client = Self::connect_to_db(service_config.clone()).await;
+        let dealer = Self::connect(service_config).await;
         let id_to_tx_job = HashMap::new();
         let (tx_incoming, rx_incoming) = mpsc::channel::<ServiceJob>(128);
         let (tx_outgoing, rx_outgoing) = mpsc::channel::<ServiceJob>(128);

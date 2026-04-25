@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use object::interfaces::{
     customer::Customer, 
-    io::{DataKind, EventMessage, EventType, Service}, 
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob
 };
 
@@ -24,8 +24,8 @@ pub async fn get_customer(
             data: DataKind::GetCustomerPvt { customer_reference_id },
             session_customer_id, 
         },
-        from: Service::Deposit,
-        to: Service::Account,
+        from: ServiceType::Deposit,
+        to: ServiceType::Account,
         timestamp: Utc::now()
     };
 

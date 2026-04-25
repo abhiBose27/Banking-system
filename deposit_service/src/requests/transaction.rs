@@ -3,7 +3,11 @@ use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
 use uuid::Uuid;
 
-use object::interfaces::{io::{DataKind, EventMessage, EventType, Service}, service_job::ServiceJob, transaction::{TransactionRequest, TransactionResponse}};
+use object::interfaces::{
+    io::{DataKind, EventMessage, EventType, ServiceType}, 
+    service_job::ServiceJob, 
+    transaction::{TransactionRequest, TransactionResponse}
+};
 
 
 pub async fn make_transaction(
@@ -19,8 +23,8 @@ pub async fn make_transaction(
             data: DataKind::CreateTransaction { transaction_request },
             session_customer_id, 
         },
-        from: Service::Deposit,
-        to: Service::Transaction,
+        from: ServiceType::Deposit,
+        to: ServiceType::Transaction,
         timestamp: Utc::now(),
     };
 

@@ -5,7 +5,7 @@ use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
 use object::interfaces::{
-    deposit::{DepositRequest, DepositResponse, DepositTenure, InterestPayout}, 
+    deposit::{DepositClose, DepositRequest, DepositResponse, DepositTenure, InterestPayout}, 
     io::DataKind, 
     service_job::ServiceJob, 
     transaction::TransactionRequest
@@ -75,10 +75,10 @@ pub async fn get_deposits(
 pub async fn close_deposit(
     client: &Client,
     tx_dealer: &Sender<ServiceJob>,
-    deposit_number: String,
+    deposit_close: DepositClose,
     session_customer_id: Option<Uuid>
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let deposit_result = get_deposit_from_deposit_number(client, deposit_number).await;
+    let deposit_result = get_deposit_from_deposit_number(client, deposit_close.deposit_number).await;
     if let Err(e) = deposit_result {
         eprintln!("Error: {e}");
         return (false, None, Some("Error: Invalid deposit_number".to_string()));
