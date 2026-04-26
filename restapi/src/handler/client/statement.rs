@@ -14,10 +14,11 @@ use object::interfaces::{
 use crate::cache::redis::is_logged_in_with_token;
 
 
-#[get("/statement")]
+#[get("/statement/{account_number}")]
 async fn get_statement(
     request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
+    path: web::Path<String>,
     payload: web::Json<StatementRequest>,
     redis_pool: web::Data<Pool>
 ) -> impl Responder {
@@ -48,7 +49,7 @@ async fn get_statement(
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::GetStatement { statement_request: payload.clone() },
+            data: DataKind::GetStatement { statement_request: payload.clone(), account_number: path.into_inner() },
             session_customer_id
         },
         from: ServiceType::Api,

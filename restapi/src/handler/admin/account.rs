@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{time::Duration};
 use actix_web::{HttpResponse, Responder, get, post, web};
 use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
@@ -12,22 +12,18 @@ use object::interfaces::{
 };
 
 
-#[get("/account")]
+#[get("/account/{account_number}")]
 async fn get_account(
     tx: web::Data<Sender<ServiceJob>>,
-    query: web::Query<HashMap<String, String>>
+    //query: web::Query<HashMap<String, String>>
+    path: web::Path<String>
 ) -> impl Responder {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
             session_customer_id: None, 
-            data: DataKind::GetAccount { 
-                account_number: match query.get("customer_reference_id") {
-                    Some(query) => query.to_string(),
-                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
-                }
-            },
+            data: DataKind::GetAccount { account_number: path.into_inner() },
         },
         from: ServiceType::Api,
         to: ServiceType::Account,
@@ -86,10 +82,10 @@ async fn get_account(
     }
 }
 
-#[get("/accounts")]
+#[get("/accounts/{customer_reference_id}")]
 async fn get_accounts(
     tx: web::Data<Sender<ServiceJob>>,
-    query: web::Query<HashMap<String, String>>
+    path: web::Path<String>
 ) -> impl Responder {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
@@ -97,15 +93,12 @@ async fn get_accounts(
             id: Uuid::new_v4(), 
             session_customer_id: None, 
             data: DataKind::GetAccounts { 
-                customer_reference_id: match query.get("customer_reference_id") {
-                    Some(query) => match Ulid::from_string(query) {
-                        Ok(id) => Some(id),
-                        Err(e) => {
-                            eprintln!("Error: {e}");
-                            return HttpResponse::BadRequest().body("Error: Invalid customer reference Id")
-                        }
+                customer_reference_id: match Ulid::from_string(&path.into_inner()) {
+                    Ok(id) => Some(id),
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        return HttpResponse::BadRequest().body("Error: Invalid customer reference Id")
                     },
-                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
                 }
             },
         },

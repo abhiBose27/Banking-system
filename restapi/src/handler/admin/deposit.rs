@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{time::Duration};
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use chrono::Utc;
 use tokio::sync::{mpsc::Sender, oneshot};
@@ -6,16 +6,16 @@ use ulid::Ulid;
 use uuid::Uuid;
 
 use object::interfaces::{
-    deposit::{DepositClose, DepositRequest}, 
+    deposit::{DepositRequest}, 
     io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob
 };
 
 
-#[get("/deposits")]
+#[get("/deposits/{customer_reference_id}")]
 async fn get_deposits(
     tx: web::Data<Sender<ServiceJob>>,
-    query: web::Query<HashMap<String, String>>
+    path: web::Path<String>
 ) -> impl Responder {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
@@ -23,15 +23,12 @@ async fn get_deposits(
             id: Uuid::new_v4(), 
             session_customer_id: None, 
             data: DataKind::GetDeposits { 
-                customer_reference_id: match query.get("customer_reference_id") {
-                    Some(query) => match Ulid::from_string(query) {
-                        Ok(id) => Some(id),
-                        Err(e) => {
-                            eprintln!("Error: {e}");
-                            return HttpResponse::BadRequest().body("Error: Invalid customer reference Id")
-                        }
+                customer_reference_id: match Ulid::from_string(&path.into_inner()) {
+                    Ok(id) => Some(id),
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        return HttpResponse::BadRequest().body("Error: Invalid customer reference Id")
                     },
-                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
                 }
             },
         },
@@ -160,17 +157,17 @@ async fn create_deposit(
     }
 }
 
-#[delete("/deposit")]
+#[delete("/deposit/{deposit_number}")]
 async fn close_deposit(
     tx: web::Data<Sender<ServiceJob>>,
-    payload: web::Json<DepositClose>,
+    path: web::Path<String>
 ) -> impl Responder {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(),
             session_customer_id: None,
-            data: DataKind::CloseDeposit { deposit_close: payload.clone() },
+            data: DataKind::CloseDeposit { deposit_number: path.into_inner() },
         },
         from: ServiceType::Api,
         to: ServiceType::Deposit,

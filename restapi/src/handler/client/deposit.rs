@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use object::interfaces::{
     authentication::AuthContext, 
-    deposit::{DepositClose, DepositRequest}, 
+    deposit::{DepositRequest}, 
     io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob
 };
@@ -205,11 +205,11 @@ async fn create_deposit(
     }
 }
 
-#[delete("/deposit")]
+#[delete("/deposit/{deposit_number}")]
 async fn close_deposit(
     request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
-    payload: web::Json<DepositClose>,
+    path: web::Path<String>,
     redis_pool: web::Data<Pool>
 ) -> impl Responder {
     let auth_context = request.extensions().get::<AuthContext>().cloned();
@@ -241,7 +241,7 @@ async fn close_deposit(
         data: EventType::Request { 
             id: Uuid::new_v4(),
             session_customer_id,
-            data: DataKind::CloseDeposit { deposit_close: payload.clone() },
+            data: DataKind::CloseDeposit { deposit_number: path.into_inner() },
         },
         from: ServiceType::Api,
         to: ServiceType::Deposit,

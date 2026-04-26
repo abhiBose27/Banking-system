@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{time::Duration};
 use actix_web::{HttpMessage, HttpRequest, HttpResponse, Responder, get, web};
 use chrono::Utc;
 use uuid::Uuid;
@@ -14,12 +14,12 @@ use object::interfaces::{
 use crate::cache::redis::is_logged_in_with_token;
 
 
-#[get("/account")]
+#[get("/account/{account_number}")]
 async fn get_account(
     request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
-    query: web::Query<HashMap<String, String>>,
-    redis_pool: web::Data<Pool>
+    redis_pool: web::Data<Pool>,
+    path: web::Path<String>
 ) -> impl Responder {
     let auth_context = request.extensions().get::<AuthContext>().cloned();
     if let None = auth_context {
@@ -50,12 +50,7 @@ async fn get_account(
         data: EventType::Request { 
             id: Uuid::new_v4(), 
             session_customer_id, 
-            data: DataKind::GetAccount { 
-                account_number: match query.get("account_number") {
-                    Some(query) => query.to_string(),
-                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
-                }
-            },
+            data: DataKind::GetAccount { account_number: path.into_inner() },
         },
         from: ServiceType::Api,
         to: ServiceType::Account,

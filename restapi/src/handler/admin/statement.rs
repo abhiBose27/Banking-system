@@ -10,9 +10,10 @@ use object::interfaces::{
 };
 
 
-#[get("/statement")]
+#[get("/statement/{account_number}")]
 async fn get_statement(
     tx: web::Data<Sender<ServiceJob>>,
+    path: web::Path<String>,
     payload: web::Json<StatementRequest>
 ) -> impl Responder {
     
@@ -21,7 +22,7 @@ async fn get_statement(
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::GetStatement { statement_request: payload.clone() },
+            data: DataKind::GetStatement {statement_request: payload.clone(), account_number: path.into_inner() },
             session_customer_id: None
         },
         from: ServiceType::Api,
