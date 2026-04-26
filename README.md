@@ -202,17 +202,17 @@ Get all the active deposits linked to a customer reference id
 
 ```
 Response: [{
-       pub deposit_number: String,
-       pub linked_account_number: String,
-       pub principal_amount: f64,
-       pub interest_rate: f64,
-       pub deposit_tenure: DepositTenure,
-       pub interest_payout: InterestPayout,
-       pub total_interest_amount: f64,
-       pub auto_renewal: bool,
-       pub renewed_deposit_tenure: Option<DepositTenure>,
-       pub maturity_date: NaiveDate,
-       pub creation_timestamp: DateTime<Utc>,
+       deposit_number: String,
+       linked_account_number: String,
+       principal_amount: f64,
+       interest_rate: f64,
+       deposit_tenure: DepositTenure,
+       interest_payout: InterestPayout,
+       total_interest_amount: f64,
+       auto_renewal: bool,
+       renewed_deposit_tenure: Option<DepositTenure>,
+       maturity_date: NaiveDate,
+       creation_timestamp: DateTime<Utc>,
 }...]
 
 DepositTenure {
@@ -391,17 +391,17 @@ Get all the active deposits linked to a customer reference id
 
 ```
 Response: [{
-       pub deposit_number: String,
-       pub linked_account_number: String,
-       pub principal_amount: f64,
-       pub interest_rate: f64,
-       pub deposit_tenure: DepositTenure,
-       pub interest_payout: InterestPayout,
-       pub total_interest_amount: f64,
-       pub auto_renewal: bool,
-       pub renewed_deposit_tenure: Option<DepositTenure>,
-       pub maturity_date: NaiveDate,
-       pub creation_timestamp: DateTime<Utc>,
+       deposit_number: String,
+       linked_account_number: String,
+       principal_amount: f64,
+       interest_rate: f64,
+       deposit_tenure: DepositTenure,
+       interest_payout: InterestPayout,
+       total_interest_amount: f64,
+       auto_renewal: bool,
+       renewed_deposit_tenure: Option<DepositTenure>,
+       maturity_date: NaiveDate,
+       creation_timestamp: DateTime<Utc>,
 }...]
 
 DepositTenure {
