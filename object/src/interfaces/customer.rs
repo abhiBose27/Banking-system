@@ -16,6 +16,14 @@ pub struct CustomerRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomerUpdate {
+    pub email_id: Option<String>,
+    pub age: Option<i64>,
+    pub date_of_birth: Option<NaiveDate>,
+    pub contact_number: Option<String>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Customer {
     pub id: Uuid,
     pub customer_reference_id: Ulid,

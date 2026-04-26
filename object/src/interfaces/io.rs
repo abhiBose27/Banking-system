@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use crate::interfaces::{
     account::{Account, AccountRequest, AccountResponse}, 
-    customer::{Customer, CustomerRequest, CustomerResponse}, 
-    deposit::{DepositClose, DepositRequest, DepositResponse}, 
+    customer::{Customer, CustomerRequest, CustomerResponse, CustomerUpdate}, 
+    deposit::{DepositRequest, DepositResponse}, 
     statement::{StatementRequest, StatementResponse}, 
     transaction::{TransactionRequest, TransactionResponse}, 
     user::{User, UserRequest}
@@ -55,19 +55,19 @@ pub enum DataKind {
     CreateAccount { account_request: AccountRequest },
     CreateCustomer { customer_request: CustomerRequest },
     CreateTransaction { transaction_request: TransactionRequest },
-    CreateTransactionResponse { transaction: TransactionResponse },
-    CloseDeposit { deposit_close: DepositClose },
+    CloseDeposit { deposit_number: String },
     GetAccounts { customer_reference_id: Option<Ulid> },
     GetCustomer { customer_reference_id: Option<Ulid> },
+    GetAccount { account_number: String },
     GetDeposits { customer_reference_id: Option<Ulid> },
-    GetStatement { statement_request: StatementRequest },
+    GetStatement { account_number: String, statement_request: StatementRequest },
+    UpdateCustomer { customer_reference_id: Ulid, customer_update: CustomerUpdate },
 
     // Private IO
-    GetAccount { account_number: String },
     GetUser { username: String, password: String },
-    UpdateBalance { account_number: String, balance: f64 },
     GetCustomerPvt { customer_reference_id: Option<Ulid> },
     GetAccountPvt{ account_number: String },
+    UpdateBalance { account_number: String, balance: f64 },
 
     // Response IO
     GetUserResponse { user: User },
@@ -81,7 +81,9 @@ pub enum DataKind {
     CreateAccountResponse { account: AccountResponse },
     CreateCustomerResponse { customer: CustomerResponse },
     CreateDepositResponse { deposit: DepositResponse },
+    CreateTransactionResponse { transaction: TransactionResponse },
     CreateUserResponse,
     UpdateBalanceResponse,
+    UpdateCustomerResponse,
     CloseDepositResponse,
 }

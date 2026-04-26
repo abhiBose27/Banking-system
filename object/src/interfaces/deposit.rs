@@ -25,12 +25,6 @@ pub struct DepositTenure {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-
-pub struct DepositClose {
-    pub deposit_number: String
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepositRequest {
     pub linked_account_number: String,
     pub principal_amount: f64,
