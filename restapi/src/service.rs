@@ -127,7 +127,7 @@ impl Service {
                 .service(
                     web::scope("/client/auth")
                         .service(handler::client::login::client_login)
-                        .service(handler::client::logout::client_logout)
+                        .service(handler::client::signup::client_signup)
                 )
                 .service(
                     web::scope("/client/api")
