@@ -67,11 +67,13 @@ pub enum DataKind {
     GetUser { username: String, password: String },
     UpdateBalance { account_number: String, balance: f64 },
     GetCustomerPvt { customer_reference_id: Option<Ulid> },
+    GetAccountPvt{ account_number: String },
 
     // Response IO
     GetUserResponse { user: User },
-    GetAccountResponse { account: Account },
+    GetAccountPvtResponse { account: Account },
     GetCustomerPvtResponse { customer: Customer },
+    GetAccountResponse { account: AccountResponse },
     GetCustomerResponse { customer: CustomerResponse },
     GetAccountsResponse { accounts: Vec<AccountResponse> },
     GetDepositsResponse { deposits: Vec<DepositResponse> },

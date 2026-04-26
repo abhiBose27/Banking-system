@@ -41,14 +41,14 @@ pub async fn create_account(client: &Client, account_request: AccountRequest) ->
     }
 }
 
-pub async fn get_account(client: &Client, account_number: String, session_customer_id: Option<Uuid>) -> (bool, Option<DataKind>, Option<String>) {
+pub async fn get_account_pvt(client: &Client, account_number: String, session_customer_id: Option<Uuid>) -> (bool, Option<DataKind>, Option<String>) {
     match get_account_from_account_number(client, account_number).await {
         Ok(account) => {
             if session_customer_id.is_some() && account.customer_id != session_customer_id.unwrap() {
                 (false, None, Some("Error: Invalid session customer id".to_string()))
             }
             else {
-                (true, Some(DataKind::GetAccountResponse { account }), None)
+                (true, Some(DataKind::GetAccountPvtResponse { account }), None)
             }
         },
         Err(e) => {
@@ -56,6 +56,28 @@ pub async fn get_account(client: &Client, account_number: String, session_custom
             (false, None, Some("Error: Failed to get account".to_string()))
         }
     }
+}
+
+pub async fn get_account(client: &Client, account_number: String, session_customer_id: Option<Uuid>) -> (bool, Option<DataKind>, Option<String>) {
+   match get_account_from_account_number(client, account_number.clone()).await {
+        Ok(account) => {
+            if session_customer_id.is_some() && account.customer_id != session_customer_id.unwrap() {
+                (false, None, Some("Error: Invalid session customer id".to_string()))
+            }
+            else {
+                let account_response = AccountResponse {
+                    account_number,
+                    balance: account.balance,
+                    creation_timestamp: account.creation_timestamp,
+                };
+                (true, Some(DataKind::GetAccountResponse { account: account_response }), None)
+            }
+        },
+        Err(e) => {
+            eprintln!("Error: {e}");
+            (false, None, Some("Error: Failed to get account".to_string()))
+        }
+    } 
 }
 
 pub async fn get_accounts(client: &Client, customer_reference_id: Option<Ulid>, session_customer_id: Option<Uuid>) -> (bool, Option<DataKind>, Option<String>) {

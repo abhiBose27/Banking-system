@@ -13,7 +13,6 @@ use object::interfaces::{
 use crate::cache::redis::is_logged_in_with_token;
 
 
-
 #[get("/customer")]
 async fn get_customer(
     request: HttpRequest,
@@ -76,7 +75,7 @@ async fn get_customer(
                                     match d {
                                         DataKind::GetCustomerResponse { customer } => return HttpResponse::Ok().body(serde_json::to_string(&customer).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting deposits");
+                                            eprintln!("Error: Invalid response received for getting customer");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }

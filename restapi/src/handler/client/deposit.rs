@@ -206,7 +206,7 @@ async fn create_deposit(
 }
 
 #[delete("/deposit")]
-async fn delete_deposit(
+async fn close_deposit(
     request: HttpRequest,
     tx: web::Data<Sender<ServiceJob>>,
     payload: web::Json<DepositClose>,

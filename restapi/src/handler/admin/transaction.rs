@@ -51,7 +51,7 @@ async fn create_transaction(
                                     match d {
                                         DataKind::CreateTransactionResponse { transaction } => return HttpResponse::Ok().body(serde_json::to_string(&transaction).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting User");
+                                            eprintln!("Error: Invalid response received for making transaction");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }

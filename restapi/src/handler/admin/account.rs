@@ -12,6 +12,80 @@ use object::interfaces::{
 };
 
 
+#[get("/account")]
+async fn get_account(
+    tx: web::Data<Sender<ServiceJob>>,
+    query: web::Query<HashMap<String, String>>
+) -> impl Responder {
+    let (tx_job, rx_job) = oneshot::channel::<EventType>();
+    let event_message = EventMessage {
+        data: EventType::Request { 
+            id: Uuid::new_v4(), 
+            session_customer_id: None, 
+            data: DataKind::GetAccount { 
+                account_number: match query.get("customer_reference_id") {
+                    Some(query) => query.to_string(),
+                    None => return HttpResponse::BadRequest().body("Error: Invalid Parameter")
+                }
+            },
+        },
+        from: ServiceType::Api,
+        to: ServiceType::Account,
+        timestamp: Utc::now()
+    };
+
+    let service_job = ServiceJob { 
+        data: event_message,
+        tx_job: Some(tx_job)
+    };
+
+    if let Err(e) = tx.send(service_job).await {
+        eprintln!("Failed to send job: {e}");
+        return HttpResponse::InternalServerError().finish();
+    }
+
+    match tokio::time::timeout(Duration::from_secs(5), rx_job).await {
+        Ok(Ok(response)) => {
+            match response {
+                EventType::Response { id: _, success, session_customer_id: _, error_message, data } => {
+                    match success {
+                        true => {
+                            match data {
+                                Some(d) => {
+                                    match d {
+                                        DataKind::GetAccountResponse { account } => return HttpResponse::Ok().body(serde_json::to_string(&account).unwrap()),
+                                        _ => {
+                                            eprintln!("Error: Invalid response received for getting account");
+                                            return HttpResponse::InternalServerError().finish();
+                                        }
+                                    }
+                                },
+                                None => {
+                                    eprintln!("Error: No response data received");
+                                    return HttpResponse::InternalServerError().finish();
+                                }
+                            }
+                        },
+                        false => {
+                            if error_message.is_none() {
+                                eprintln!("Error: No error message received");
+                                return HttpResponse::InternalServerError().finish();
+                            }
+                            return HttpResponse::InternalServerError().body(error_message.unwrap());
+                        }
+                    }
+                },
+                _ => {
+                    eprintln!("Error: Unknown object received on API: {:?}", response.clone());
+                    return HttpResponse::InternalServerError().finish();
+                }
+            }
+        },
+        Ok(Err(_)) => HttpResponse::InternalServerError().body("Worker failed"),
+        Err(_) => HttpResponse::RequestTimeout().body("Timed out"),
+    }
+}
+
 #[get("/accounts")]
 async fn get_accounts(
     tx: web::Data<Sender<ServiceJob>>,
@@ -61,7 +135,7 @@ async fn get_accounts(
                                     match d {
                                         DataKind::GetAccountsResponse { accounts } => return HttpResponse::Ok().body(serde_json::to_string(&accounts).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting deposits");
+                                            eprintln!("Error: Invalid response received for getting accounts");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }
@@ -130,7 +204,7 @@ async fn create_account(
                                     match d {
                                         DataKind::CreateAccountResponse { account } => return HttpResponse::Ok().body(serde_json::to_string(&account).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting User");
+                                            eprintln!("Error: Invalid response received for creating account");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }

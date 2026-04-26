@@ -21,7 +21,7 @@ pub async fn get_account(
     let request = EventMessage {
         data: EventType::Request { 
             id: request_id, 
-            data: DataKind::GetAccount { account_number },
+            data: DataKind::GetAccountPvt { account_number },
             session_customer_id, 
         },
         from: ServiceType::Transaction,
@@ -45,7 +45,7 @@ pub async fn get_account(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetAccountResponse { account } => Some(account),
+                                        DataKind::GetAccountPvtResponse { account } => Some(account),
                                         _ => {
                                             eprintln!("Error: Invalid response received");
                                             None

@@ -61,7 +61,7 @@ async fn get_customer(
                                     match d {
                                         DataKind::GetCustomerResponse { customer } => return HttpResponse::Ok().body(serde_json::to_string(&customer).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting deposits");
+                                            eprintln!("Error: Invalid response received for getting customer");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }
@@ -130,7 +130,7 @@ async fn create_customer(
                                     match d {
                                         DataKind::CreateCustomerResponse { customer } => return HttpResponse::Ok().body(serde_json::to_string(&customer).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting User");
+                                            eprintln!("Error: Invalid response received for creating customer");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }

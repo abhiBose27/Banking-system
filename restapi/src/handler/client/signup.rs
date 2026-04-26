@@ -51,7 +51,7 @@ async fn client_signup(
                                     match d {
                                         DataKind::CreateUserResponse => return HttpResponse::Ok().body("Added user"),
                                         _ => {
-                                            eprintln!("Error: Invalid response received on create user endpoint");
+                                            eprintln!("Error: Invalid response received for creating user");
                                             return HttpResponse::InternalServerError().finish();
                                         },
                                     }

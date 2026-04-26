@@ -48,7 +48,7 @@ async fn get_statement(
                                     match d {
                                         DataKind::GetStatementResponse { statement } => return HttpResponse::Ok().body(serde_json::to_string(&statement).unwrap()),
                                         _ => {
-                                            eprintln!("Error: Invalid response received for getting User");
+                                            eprintln!("Error: Invalid response received for getting statement");
                                             return HttpResponse::InternalServerError().finish();
                                         }
                                     }
