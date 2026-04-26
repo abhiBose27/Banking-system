@@ -22,6 +22,27 @@ Respone: {
 
 ```
 
+#### GET /account?account_number={number}
+Get the account details
+```
+Response {
+       account_number: String,
+       balance: f64,
+       creation_timestamp: Datetime<Utc>
+}
+```
+
+#### GET /accounts?customer_reference_id={id}
+Get all the accounts linked to customer reference id
+```
+Response: [{
+       account_number: String,
+       balance: f64,
+       creation_timestamp: DateTime<Utc> 
+}...]
+
+```
+
 #### POST /customer
 Create a customer
 ```
@@ -46,17 +67,6 @@ Response: {
        contact_number: String,
        creation_timestamp: DateTime<Utc>
 }
-```
-
-#### GET /accounts?customer_reference_id={id}
-Get all the accounts linked to customer reference id
-```
-Response: [{
-       account_number: String,
-       balance: f64,
-       creation_timestamp: DateTime<Utc> 
-}...]
-
 ```
 
 #### GET /customer?customer_reference_id={id}
@@ -226,6 +236,162 @@ All the requests under this route has a AuthContext header carrying the bearer t
 
 #### POST /logout
 Logout of system as a client.
+
+#### GET /account?account_number={number}
+Get the account details
+```
+Response {
+       account_number: String,
+       balance: f64,
+       creation_timestamp: Datetime<Utc>
+}
+```
+
+#### GET /accounts
+Get all the accounts linked to customer reference id
+```
+Response: [{
+       account_number: String,
+       balance: f64,
+       creation_timestamp: DateTime<Utc> 
+}...]
+
+```
+
+### GET /customer
+Get the customer details linked to customer reference id
+```
+Response: {
+       customer_reference_id: Ulid,
+       first_name: String,
+       last_name: String,
+       pan_id: String,
+       email_id: String,
+       age: i64,
+       date_of_birth: NaiveDate,
+       contact_number: String,
+       creation_timestamp: DateTime<Utc>
+}
+```
+
+#### GET /statement
+Get the statement of an account
+```
+Request: {
+       account_number: String,
+       from_date: Option<NaiveDate>,
+       to_date: Option<NaiveDate>
+}
+
+Response: [{
+       date: NaiveDate,
+       amount: f64,
+       reference_id: Ulid,
+       from_account_number: Option<String>,
+       to_account_number: Option<String>,
+       transaction_type: TransactionType,
+}....]
+```
+
+#### POST /transaction
+Make a transaction
+```
+Request: {
+       amount: f64,
+       from_account_number: Option<String>,
+       to_account_number: Option<String>,
+}
+
+Response: {
+       reference_id: Ulid,
+       amount: f64,
+       from_account_number: Option<String>,
+       to_account_number: Option<String>,
+       transaction_timestamp: DateTime<Utc>
+}
+```
+
+#### POST /deposit
+```
+Request: {
+       linked_account_number: String,
+       principal_amount: f64,
+       deposit_tenure: DepositTenure,
+       interest_payout: InterestPayout,
+       auto_renewal: bool,
+       renewed_deposit_tenure: Option<DepositTenure>,
+}
+
+Response: {
+       deposit_number: String,
+       linked_account_number: String,
+       principal_amount: f64,
+       interest_rate: f64,
+       deposit_tenure: DepositTenure,
+       interest_payout: InterestPayout,
+       total_interest_amount: f64,
+       auto_renewal: bool,
+       renewed_deposit_tenure: Option<DepositTenure>,
+       maturity_date: NaiveDate,
+       creation_timestamp: DateTime<Utc>,
+}
+
+DepositTenure {
+       years: int,
+       months: int,
+       days: int
+}
+
+enum InterestPayout {
+       Daily,
+       Monthly,
+       Quaterly,
+       Maturity,
+       Renew
+}
+```
+
+#### DELETE /deposit
+Close a deposit
+
+```
+Request: {
+       deposit_number: String
+}
+```
+
+#### GET /deposits
+Get all the active deposits linked to a customer reference id
+
+```
+Response: [{
+       pub deposit_number: String,
+       pub linked_account_number: String,
+       pub principal_amount: f64,
+       pub interest_rate: f64,
+       pub deposit_tenure: DepositTenure,
+       pub interest_payout: InterestPayout,
+       pub total_interest_amount: f64,
+       pub auto_renewal: bool,
+       pub renewed_deposit_tenure: Option<DepositTenure>,
+       pub maturity_date: NaiveDate,
+       pub creation_timestamp: DateTime<Utc>,
+}...]
+
+DepositTenure {
+       years: int,
+       months: int,
+       days: int
+}
+
+enum InterestPayout {
+       Daily,
+       Monthly,
+       Quaterly,
+       Maturity,
+       Renew
+}
+```
 
 ## 🧱 Architecture
 
