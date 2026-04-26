@@ -70,8 +70,8 @@ impl Service {
             DataKind::CreateDeposit { deposit_request } => {
                 create_deposit(client, tx_dealer, deposit_request, session_customer_id).await
             },
-            DataKind::CloseDeposit { deposit_close } => {
-                close_deposit(client, tx_dealer, deposit_close, session_customer_id).await
+            DataKind::CloseDeposit { deposit_number } => {
+                close_deposit(client, tx_dealer, deposit_number, session_customer_id).await
             },
             DataKind::GetDeposits { customer_reference_id } => {
                 get_deposits(client, tx_dealer, customer_reference_id, session_customer_id).await

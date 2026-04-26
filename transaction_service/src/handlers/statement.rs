@@ -11,12 +11,13 @@ pub async fn get_statement(
     tx_dealer: &Sender<ServiceJob>,
     session_customer_id: Option<Uuid>,
     statement_request: StatementRequest,
+    account_number: String
 ) -> (bool, Option<DataKind>, Option<String>) {
-    let account_result = get_account(tx_dealer, statement_request.account_number.clone(), session_customer_id).await;
+    let account_result = get_account(tx_dealer, account_number.clone(), session_customer_id).await;
     if let None = account_result {
         return (false, None, Some("Error: Invalid credentials".to_string()));
     }
-    match get_statement_db(client, statement_request).await {
+    match get_statement_db(client, statement_request, account_number).await {
         Ok(statement) => (true, Some(DataKind::GetStatementResponse { statement }), None),
         Err(e) => {
             eprintln!("Error: {e}");

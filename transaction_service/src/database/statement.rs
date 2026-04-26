@@ -11,31 +11,32 @@ use ulid::Ulid;
 
 pub async fn get_statement_db(
     client: &Client,
-    statement_request: StatementRequest
+    statement_request: StatementRequest,
+    account_number: String
 ) -> Result<Vec<StatementResponse>> {
     let db_response = match (statement_request.from_date, statement_request.to_date) {
         (None, None) => {
             let rows = client.query("SELECT * FROM transaction WHERE from_acc = $1 OR to_acc = $2 ORDER BY transaction_timestamp DESC LIMIT 10",
-            &[&statement_request.account_number, &statement_request.account_number]).await;
+            &[&account_number, &account_number]).await;
             rows
         },
         (None, Some(to)) => {
             let end   = Utc.from_utc_datetime(&to.succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap());
             let rows = client.query("SELECT * FROM transaction WHERE (from_acc = $1 OR to_acc = $2) AND transaction_timestamp < $3",
-            &[&statement_request.account_number, &statement_request.account_number, &end]).await;
+            &[&account_number, &account_number, &end]).await;
             rows
         },
         (Some(from), None) => {
             let start = Utc.from_utc_datetime(&from.and_hms_opt(0, 0, 0).unwrap());
             let rows = client.query("SELECT * FROM transaction WHERE (from_acc = $1 OR to_acc = $2) AND transaction_timestamp >= $3",
-            &[&statement_request.account_number, &statement_request.account_number, &start]).await;
+            &[&account_number, &account_number, &start]).await;
             rows
         },
         (Some(from), Some(to)) => {
             let start = Utc.from_utc_datetime(&from.and_hms_opt(0, 0, 0).unwrap());
             let end   = Utc.from_utc_datetime(&to.succ_opt().unwrap().and_hms_opt(0, 0, 0).unwrap());
             let rows = client.query("SELECT * FROM transaction WHERE (from_acc = $1 OR to_acc = $2) AND transaction_timestamp >= $3 transaction_timestamp < $4",
-            &[&statement_request.account_number, &statement_request.account_number, &start, &end]).await;
+            &[&account_number, &account_number, &start, &end]).await;
             rows
         },
     };
@@ -51,7 +52,7 @@ pub async fn get_statement_db(
         let amount = row.get("amount");
         let reference_id_str = row.get("reference_id");
         let transaction_type = if let Some(from) = from_acc.clone() {
-            if from == statement_request.account_number { TransactionType::Debit }
+            if from == account_number { TransactionType::Debit }
             else { TransactionType::Credit }
         } else { TransactionType::Credit };
 

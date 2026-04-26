@@ -133,7 +133,7 @@ pub async fn get_deposit_from_deposit_number(
     deposit_number: String
 ) -> Result<Deposit> {
     let row_result = client.query_one(
-        "SELECT * FROM deposit_account WHERE deposit_number = $1", 
+        "SELECT * FROM deposit_account WHERE deposit_number = $1 AND status = '\"Active\"'", 
         &[&deposit_number]
     ).await;
     if let Err(e) = row_result {
