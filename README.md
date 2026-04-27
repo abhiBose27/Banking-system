@@ -18,14 +18,18 @@ ___________________       ┌─────────────────
 |  • Login         |      │ Routes all internal msgs |        |       Deposit Serivce    |
 |__________________|      └───────┬─────────┬────────┘        │  • Open / Close Deposit  │
                                   │         │                 |  • Interest Accrual      |
-                                  ▼         ▼                 │  • Maturity Handling     │
+                                  ▼         ▼                 │  • Maturity Handling     |
+                                                              │  • Get Deposit detail    |
                                                               └──────────────────────────┘
        ┌──────────────────────────┐   ┌─────────────────────────┐
        │     Account Service      │   │   Transaction Service   │
        │  • Add Customer          │   │  • Create Transaction   │
        │  • Create Account        │   │  • Store Transaction    │
-       │  • Update Balance        │   │  • Generate Statements  │
-       └──────────────────────────┘   └─────────────────────────┘
+       │  • Update Balance        |   |  • Generate Statement   | 
+       |  • Update Customer       |   └─────────────────────────┘
+       |  • Get Account detail    |
+       |  • Get Customer detail   |        
+       └──────────────────────────┘   
 ```
 
 # Documentation
