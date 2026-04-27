@@ -48,7 +48,7 @@ Respone: {
 
 ```
 
-#### GET /account?account_number={number}
+#### GET /account/{account_number}
 Get the account details
 ```
 Response {
@@ -58,7 +58,7 @@ Response {
 }
 ```
 
-#### GET /accounts?customer_reference_id={id}
+#### GET /accounts/{customer_reference_id}
 Get all the accounts linked to customer reference id
 ```
 Response: [{
@@ -95,7 +95,7 @@ Response: {
 }
 ```
 
-#### GET /customer?customer_reference_id={id}
+#### GET /customer/{customer_reference_id}
 Get the customer details linked to customer reference id
 ```
 Response: {
@@ -111,11 +111,10 @@ Response: {
 }
 ```
 
-#### GET /statement
+#### GET /statement/{account_number}
 Get the statement of an account
 ```
 Request: {
-       account_number: String,
        from_date: Option<NaiveDate>,
        to_date: Option<NaiveDate>
 }
@@ -188,16 +187,11 @@ enum InterestPayout {
 }
 ```
 
-#### DELETE /deposit
+#### DELETE /deposit/{deposit_number}
 Close a deposit
 
-```
-Request: {
-       deposit_number: String
-}
-```
 
-#### GET /deposits?customer_reference_id={id}
+#### GET /deposits/{customer_reference_id}
 Get all the active deposits linked to a customer reference id
 
 ```
@@ -263,7 +257,7 @@ All the requests under this route has a AuthContext header carrying the bearer t
 #### POST /logout
 Logout of system as a client.
 
-#### GET /account?account_number={number}
+#### GET /account/{account_number}
 Get the account details
 ```
 Response {
@@ -274,7 +268,7 @@ Response {
 ```
 
 #### GET /accounts
-Get all the accounts linked to customer reference id
+Get all the accounts linked to session customer id
 ```
 Response: [{
        account_number: String,
@@ -285,7 +279,7 @@ Response: [{
 ```
 
 ### GET /customer
-Get the customer details linked to customer reference id
+Get the customer details linked to session customer id
 ```
 Response: {
        customer_reference_id: Ulid,
@@ -300,11 +294,10 @@ Response: {
 }
 ```
 
-#### GET /statement
+#### GET /statement/{account_number}
 Get the statement of an account
 ```
 Request: {
-       account_number: String,
        from_date: Option<NaiveDate>,
        to_date: Option<NaiveDate>
 }
@@ -377,17 +370,12 @@ enum InterestPayout {
 }
 ```
 
-#### DELETE /deposit
+#### DELETE /deposit/{deposit_number}
 Close a deposit
 
-```
-Request: {
-       deposit_number: String
-}
-```
 
 #### GET /deposits
-Get all the active deposits linked to a customer reference id
+Get all the active deposits linked to a session customer id
 
 ```
 Response: [{
