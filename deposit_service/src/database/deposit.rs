@@ -1,115 +1,18 @@
-use chrono::{DateTime, Duration, Months, Utc};
+use chrono::{DateTime, Utc};
 use tokio_postgres::Client;
 use uuid::Uuid;
 use anyhow::Result;
 
-use object::interfaces::deposit::{Deposit, DepositRequest, DepositStatus, DepositTenure, InterestPayout};
+use object::interfaces::deposit::{Deposit, DepositRequest, DepositStatus};
+
+use crate::tools::tools::{get_interest_rate, get_maturity_timestamp, get_next_interest_timestamp, get_total_interest_amount};
+
 
 fn generate_account_number() -> String {
     let id = Uuid::new_v4();
     let short = &id.to_string()[0..16]; // truncate to 12 chars
     return format!("ACC{}", short.replace("-", "").to_uppercase())
 }
-
-fn get_maturity_timestamp(current_timestamp: DateTime<Utc>, deposit_tenure: DepositTenure) -> DateTime<Utc> {
-    let mut maturity_timestamp = current_timestamp;
-    if deposit_tenure.years != 0 {
-        maturity_timestamp = maturity_timestamp + Months::new((deposit_tenure.years * 12) as u32);
-    }
-    if deposit_tenure.months != 0 {
-        maturity_timestamp = maturity_timestamp + Months::new(deposit_tenure.months as u32);
-    }
-    if deposit_tenure.days != 0 {
-        maturity_timestamp = maturity_timestamp + Duration::days(deposit_tenure.days as i64);
-    }
-    maturity_timestamp
-}
-
-pub fn get_next_interest_timestamp(
-    current_timestamp: DateTime<Utc>,
-    maturity_timestamp: DateTime<Utc>, 
-    interest_payout: InterestPayout
-) -> Option<DateTime<Utc>> {
-    if current_timestamp == maturity_timestamp {
-        return Some(maturity_timestamp);
-    }
-    let interest_timestamp = current_timestamp;
-    match interest_payout {
-        InterestPayout::Daily => Some(interest_timestamp + Duration::days(1 as i64)),
-        InterestPayout::Monthly => Some(interest_timestamp + Months::new(1 as u32)),
-        InterestPayout::Quaterly => Some(interest_timestamp + Months::new(3 as u32)),
-        InterestPayout::Maturity => Some(maturity_timestamp),
-        InterestPayout::Renew => None,
-    }
-}
-
-fn get_total_interest_amount(
-    principal_amount: f64,
-    interest_rate: f64,
-    deposit_tenure: DepositTenure
-) -> f64 {
-    let total_days = deposit_tenure.days + deposit_tenure.months * 30 + deposit_tenure.years * 360;
-    let annual_interest_amount = principal_amount * (interest_rate / 100.0);
-    (annual_interest_amount / 360.0) * total_days as f64
-}
-
-fn get_interest_rate(
-    deposit_tenure: DepositTenure
-) -> f64 {
-    match deposit_tenure.years {
-        0 => 5.6,
-        1 => 7.5,
-        _ => 8.0
-    }
-}
-
-/* fn get_interest_amount_to_frequency(
-    principal_amount: f64,
-    interest_rate: f64,
-    interest_payout: InterestPayout,
-    deposit_tenure: Option<DepositTenure>
-) -> HashMap<String, usize> {
-    let mut hashmap = HashMap::new();
-    if let None = deposit_tenure {
-        return hashmap;
-    }
-    let d = deposit_tenure.unwrap();
-    let total_days = d.days + d.months * 30 + d.years * 365;
-    let annual_interest_amount = principal_amount * (interest_rate / 100.0);
-    match interest_payout {
-        InterestPayout::Daily => {
-            let daily_interest_amount = annual_interest_amount / 365.0;
-            let key = format!("{:.2}", daily_interest_amount);
-            hashmap.insert(key, total_days.try_into().unwrap());
-        },
-        InterestPayout::Monthly => {
-            let total_months = total_days / 30;
-            let leftover_days = total_days % 30;
-            let monthly_interest_amount = annual_interest_amount / 12.0;
-            let leftover_interest_amount = annual_interest_amount * (leftover_days as f64 / 365.0);
-            hashmap.insert(format!("{:.2}", monthly_interest_amount), total_months.try_into().unwrap());
-            hashmap.insert(format!("{:.2}", leftover_interest_amount), 1);
-        },
-        InterestPayout::Quaterly => {
-            let total_quaters = total_days / 91;
-            let leftover_days = total_days % 91;
-            let quaterly_interest_amount = annual_interest_amount / 4.0;
-            let leftover_interest_amount = annual_interest_amount * (leftover_days as f64 / 365.0);
-            hashmap.insert(format!("{:.2}", quaterly_interest_amount), total_quaters.try_into().unwrap());
-            hashmap.insert(format!("{:.2}", leftover_interest_amount), 1);
-
-        },
-        _ => {
-            let total_quaters = total_days / 91;
-            let leftover_days = total_days % 91;
-            let quarter_compound_interest = principal_amount * (1.0 + interest_rate / 4.0).powf(total_quaters.into());
-            let simple_interest = quarter_compound_interest * leftover_days as f64 * (interest_rate / 100.0) / 365.0;
-            let maturity_interest = quarter_compound_interest + simple_interest - principal_amount as f64;
-            hashmap.insert(format!("{:.2}", maturity_interest), 1);
-        },
-    };
-    hashmap
-} */
 
 pub async fn close_deposit(
     client: &Client,
@@ -169,7 +72,7 @@ pub async fn get_deposits_from_customer_id(
     customer_id: Uuid
 ) -> Result<Vec<Deposit>> {
      let rows_result = client.query(
-        "SELECT * FROM deposit_account WHERE customer_id = $1", 
+        "SELECT * FROM deposit_account WHERE customer_id = $1 AND status = '\"Active\"'", 
         &[&customer_id]
     ).await;
     if let Err(e) = rows_result {

@@ -5,9 +5,9 @@ use tokio_postgres::Client;
 use object::interfaces::{deposit::InterestPayout, service_job::ServiceJob, transaction::{TransactionRequest}};
 
 use crate::{database::{
-    deposit::{get_next_interest_timestamp, update_deposit}, 
+    deposit::update_deposit, 
     interest::get_deposit_for_interest}, 
-    requests::transaction::make_transaction
+    requests::transaction::make_transaction, tools::tools::get_next_interest_timestamp
 };
 
 pub async fn process_interests(client: &Client, tx_dealer: &Sender<ServiceJob>) {

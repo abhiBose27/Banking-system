@@ -7,6 +7,7 @@ pub mod interfaces;
 pub mod database;
 pub mod handlers;
 pub mod requests;
+pub mod tools;
 
 
 #[tokio::main]

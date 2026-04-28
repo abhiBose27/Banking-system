@@ -5,7 +5,7 @@ use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
 use object::interfaces::{
-    deposit::{DepositRequest, DepositResponse, DepositTenure, InterestPayout}, 
+    deposit::{DepositRequest, DepositResponse, InterestPayout}, 
     io::DataKind, 
     service_job::ServiceJob, 
     transaction::TransactionRequest
@@ -13,30 +13,9 @@ use object::interfaces::{
 
 use crate::{
     database::deposit::{add_deposit, close_deposit as close_deposit_db, get_deposit_from_deposit_number, get_deposits_from_customer_id}, 
-    requests::{account::get_account, customer::get_customer, transaction::make_transaction}
+    requests::{account::get_account, customer::get_customer, transaction::make_transaction}, tools::tools::{is_valid_deposit_tenure, is_valid_interest_payout}
 };
 
-
-fn is_valid_interest_payout(interest_payout: InterestPayout, deposit_tenure: Option<DepositTenure>) -> bool {
-    match deposit_tenure {
-        Some(d) => {
-            let total_days = d.days + d.months * 30 + d.years * 360;
-            match interest_payout {
-                InterestPayout::Monthly => total_days >= 30,
-                InterestPayout::Quaterly => total_days >= 90,
-                _ => true,
-            }
-        },
-        None => true
-    }
-}
-
-fn is_valid_deposit_tenure(deposit_tenure: Option<DepositTenure>) -> bool {
-    match deposit_tenure {
-        Some(d) => !(d.days == 0 && d.months == 0 && d.years == 0),
-        None => true
-    }
-}
 
 pub async fn get_deposits(
     client: &Client,
