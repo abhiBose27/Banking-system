@@ -53,7 +53,7 @@ async fn get_deposits(
             session_customer_id
         },
         from: ServiceType::Api,
-        to: ServiceType::Account,
+        to: ServiceType::Deposit,
         timestamp: Utc::now()
     };
 
