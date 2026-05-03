@@ -144,7 +144,7 @@ async fn get_accounts(
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::GetAccounts { customer_reference_id: None }, 
+            data: DataKind::GetAccountsDetail { customer_reference_id: None }, 
             session_customer_id 
         },
         from: ServiceType::Api,
@@ -171,7 +171,7 @@ async fn get_accounts(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetAccountsResponse { accounts } => return HttpResponse::Ok().body(serde_json::to_string(&accounts).unwrap()),
+                                        DataKind::GetAccountsDetailResponse { accounts_detail } => return HttpResponse::Ok().body(serde_json::to_string(&accounts_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for getting accounts");
                                             return HttpResponse::InternalServerError().finish();

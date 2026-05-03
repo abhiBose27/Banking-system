@@ -125,7 +125,7 @@ async fn create_customer(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::CreateCustomerResponse { customer } => return HttpResponse::Ok().body(serde_json::to_string(&customer).unwrap()),
+                                        DataKind::CreateCustomerResponse { customer_detail } => return HttpResponse::Ok().body(serde_json::to_string(&customer_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for creating customer");
                                             return HttpResponse::InternalServerError().finish();

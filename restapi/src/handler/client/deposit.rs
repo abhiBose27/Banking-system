@@ -49,7 +49,7 @@ async fn get_deposits(
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::GetDeposits { customer_reference_id: None }, 
+            data: DataKind::GetDepositsDetail { customer_reference_id: None }, 
             session_customer_id
         },
         from: ServiceType::Api,
@@ -76,7 +76,7 @@ async fn get_deposits(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetDepositsResponse { deposits } => return HttpResponse::Ok().body(serde_json::to_string(&deposits).unwrap()),
+                                        DataKind::GetDepositsDetailResponse { deposits_detail } => return HttpResponse::Ok().body(serde_json::to_string(&deposits_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for getting deposits");
                                             return HttpResponse::InternalServerError().finish();
@@ -172,7 +172,7 @@ async fn create_deposit(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::CreateDepositResponse { deposit } => return HttpResponse::Ok().body(serde_json::to_string(&deposit).unwrap()),
+                                        DataKind::CreateDepositResponse { deposit_detail } => return HttpResponse::Ok().body(serde_json::to_string(&deposit_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for creating deposit");
                                             return HttpResponse::InternalServerError().finish();

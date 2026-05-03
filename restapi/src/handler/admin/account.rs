@@ -92,7 +92,7 @@ async fn get_accounts(
         data: EventType::Request { 
             id: Uuid::new_v4(), 
             session_customer_id: None, 
-            data: DataKind::GetAccounts { 
+            data: DataKind::GetAccountsDetail { 
                 customer_reference_id: match Ulid::from_string(&path.into_inner()) {
                     Ok(id) => Some(id),
                     Err(e) => {
@@ -126,7 +126,7 @@ async fn get_accounts(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetAccountsResponse { accounts } => return HttpResponse::Ok().body(serde_json::to_string(&accounts).unwrap()),
+                                        DataKind::GetAccountsDetailResponse { accounts_detail } => return HttpResponse::Ok().body(serde_json::to_string(&accounts_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for getting accounts");
                                             return HttpResponse::InternalServerError().finish();
@@ -195,7 +195,7 @@ async fn create_account(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::CreateAccountResponse { account } => return HttpResponse::Ok().body(serde_json::to_string(&account).unwrap()),
+                                        DataKind::CreateAccountResponse { account_detail } => return HttpResponse::Ok().body(serde_json::to_string(&account_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for creating account");
                                             return HttpResponse::InternalServerError().finish();

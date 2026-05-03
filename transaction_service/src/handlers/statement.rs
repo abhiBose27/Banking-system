@@ -18,7 +18,7 @@ pub async fn get_statement(
         return (false, None, Some("Error: Invalid credentials".to_string()));
     }
     match get_statement_db(client, statement_request, account_number).await {
-        Ok(statement) => (true, Some(DataKind::GetStatementResponse { statement }), None),
+        Ok(statement_detail) => (true, Some(DataKind::GetStatementDetailResponse { statement_detail }), None),
         Err(e) => {
             eprintln!("Error: {e}");
             (false, None, Some("Error: Failed to get statement".to_string()))

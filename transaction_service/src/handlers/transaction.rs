@@ -5,7 +5,7 @@ use tokio_postgres::Client;
 use object::interfaces::{
     io::DataKind, 
     service_job::ServiceJob, 
-    transaction::{TransactionRequest, TransactionResponse}};
+    transaction::{TransactionRequest, TransactionDetail}};
 
 use crate::{
     database::transaction::make_transaction as make_transaction_db, 
@@ -86,14 +86,14 @@ pub async fn make_transaction(
     };
     match make_transaction_db(client, transaction_request).await {
         Ok(transaction) => {
-            let transaction_response = TransactionResponse {
+            let transaction_detail = TransactionDetail {
                 reference_id: transaction.reference_id,
                 from_account_number: transaction.from_account_number,
                 to_account_number: transaction.to_account_number,
                 amount: transaction.amount,
                 transaction_timestamp: transaction.transaction_timestamp,
             };
-            (true, Some(DataKind::CreateTransactionResponse { transaction: transaction_response }), None)
+            (true, Some(DataKind::CreateTransactionResponse { transaction_detail }), None)
         }
         Err(e) => {
             eprintln!("Error: {e}");

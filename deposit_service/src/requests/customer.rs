@@ -21,7 +21,7 @@ pub async fn get_customer(
     let request = EventMessage {
         data: EventType::Request { 
             id: request_id, 
-            data: DataKind::GetCustomerPvt { customer_reference_id },
+            data: DataKind::GetCustomer { customer_reference_id },
             session_customer_id, 
         },
         from: ServiceType::Deposit,
@@ -45,7 +45,7 @@ pub async fn get_customer(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetCustomerPvtResponse { customer } => Some(customer),
+                                        DataKind::GetCustomerResponse { customer } => Some(customer),
                                         _ => {
                                             eprintln!("Error Invalid response received");
                                             None

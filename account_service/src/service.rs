@@ -10,8 +10,8 @@ use object::interfaces::{
 
 use crate::{
     handlers::{
-        account::{create_account, get_account, get_account_pvt, get_accounts, update_balance}, 
-        customer::{create_customer, get_customer, get_customer_pvt}
+        account::{create_account, get_account, get_accounts, update_balance}, 
+        customer::{create_customer, get_customer}
     }, interface::service::Service
 };
 
@@ -71,21 +71,20 @@ impl Service {
                 update_balance(client, account_number, balance, session_customer_id).await
             }
             DataKind::GetAccount { account_number } => {
-                get_account(client, account_number, session_customer_id).await
+                get_account(client, account_number, session_customer_id, false).await
             }
-            DataKind::GetAccountPvt { account_number } => {
-                get_account_pvt(client, account_number, session_customer_id).await
+            DataKind::GetAccountDetail { account_number } => {
+                get_account(client, account_number, session_customer_id, true).await
             }
-            DataKind::GetCustomerPvt { customer_reference_id } => {
-                get_customer_pvt(client, customer_reference_id, session_customer_id).await
+            DataKind::GetCustomerDetail { customer_reference_id } => {
+                get_customer(client, customer_reference_id, session_customer_id, true).await
             }
             DataKind::GetCustomer { customer_reference_id } => {
-                get_customer(client, customer_reference_id, session_customer_id).await
+                get_customer(client, customer_reference_id, session_customer_id, false).await
             }
-            DataKind::GetAccounts { customer_reference_id } => {
+            DataKind::GetAccountsDetail { customer_reference_id } => {
                 get_accounts(client, customer_reference_id, session_customer_id).await
             }
-
             _ => panic!("Error: Invalid request received on Account Service")
         };
         EventType::Response { 

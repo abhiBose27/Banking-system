@@ -22,7 +22,7 @@ pub async fn get_customer(
         data: EventType::Request { 
             id: request_id,
             session_customer_id: None,
-            data: DataKind::GetCustomerPvt { customer_reference_id: Some(customer_reference_id) }
+            data: DataKind::GetCustomer { customer_reference_id: Some(customer_reference_id) }
         },
         from: ServiceType::User,
         to: ServiceType::Account,
@@ -45,7 +45,7 @@ pub async fn get_customer(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetCustomerPvtResponse { customer } => Some(customer),
+                                        DataKind::GetCustomerResponse { customer } => Some(customer),
                                         _ => {
                                             eprintln!("Error Invalid response received");
                                             None

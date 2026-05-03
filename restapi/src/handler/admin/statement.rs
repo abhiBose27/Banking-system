@@ -22,7 +22,7 @@ async fn get_statement(
     let event_message = EventMessage {
         data: EventType::Request { 
             id: Uuid::new_v4(), 
-            data: DataKind::GetStatement {statement_request: payload.clone(), account_number: path.into_inner() },
+            data: DataKind::GetStatementDetail { statement_request: payload.clone(), account_number: path.into_inner() },
             session_customer_id: None
         },
         from: ServiceType::Api,
@@ -47,7 +47,7 @@ async fn get_statement(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::GetStatementResponse { statement } => return HttpResponse::Ok().body(serde_json::to_string(&statement).unwrap()),
+                                        DataKind::GetStatementDetailResponse { statement_detail } => return HttpResponse::Ok().body(serde_json::to_string(&statement_detail).unwrap()),
                                         _ => {
                                             eprintln!("Error: Invalid response received for getting statement");
                                             return HttpResponse::InternalServerError().finish();

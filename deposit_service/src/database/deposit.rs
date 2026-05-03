@@ -5,7 +5,7 @@ use anyhow::Result;
 
 use object::interfaces::deposit::{Deposit, DepositRequest, DepositStatus};
 
-use crate::tools::tools::{get_interest_rate, get_maturity_timestamp, get_next_interest_timestamp, get_total_interest_amount};
+use crate::utils::{deposit::get_maturity_timestamp, interest::{get_interest_rate, get_next_interest_timestamp, get_total_interest_amount}};
 
 
 fn generate_account_number() -> String {
@@ -124,13 +124,20 @@ pub async fn update_deposit(
 pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: DepositRequest) -> Result<Deposit> {
     let deposit_id = Uuid::new_v4();
     let creation_timestamp = Utc::now();
-    let deposit_tenure = deposit_request.deposit_tenure;
-    let interest_payout = deposit_request.interest_payout;
-    let renewed_deposit_tenure = deposit_request.renewed_deposit_tenure;
-    let interest_rate = get_interest_rate(deposit_tenure.clone());
-    let maturity_timestamp = get_maturity_timestamp(creation_timestamp, deposit_tenure.clone());
-    let total_interest_amount = get_total_interest_amount(deposit_request.principal_amount, interest_rate, deposit_tenure.clone());
-    let next_interest_timestamp = get_next_interest_timestamp(creation_timestamp, maturity_timestamp, interest_payout.clone());
+    let interest_rate = get_interest_rate(deposit_request.deposit_tenure.years);
+    let maturity_timestamp = get_maturity_timestamp(
+        creation_timestamp, 
+        &deposit_request.deposit_tenure
+    );
+    let total_interest_amount = get_total_interest_amount(
+        deposit_request.principal_amount, 
+        interest_rate, 
+        &deposit_request.deposit_tenure
+    );
+    let next_interest_timestamp = get_next_interest_timestamp(
+        creation_timestamp, 
+        maturity_timestamp, &deposit_request.interest_payout
+    );
     let deposit = Deposit {
         id: deposit_id,
         customer_id,
@@ -138,12 +145,12 @@ pub async fn add_deposit(client: &Client, customer_id: Uuid, deposit_request: De
         linked_account_number: deposit_request.linked_account_number,
         principal_amount: deposit_request.principal_amount,
         interest_rate,
-        interest_payout,
+        interest_payout: deposit_request.interest_payout,
         auto_renewal: deposit_request.auto_renewal,
         creation_timestamp,
         status: DepositStatus::Active,
-        deposit_tenure,
-        renewed_deposit_tenure,
+        deposit_tenure: deposit_request.deposit_tenure,
+        renewed_deposit_tenure: deposit_request.renewed_deposit_tenure,
         next_interest_date: next_interest_timestamp.map(|d| d.date_naive()),
         maturity_date: maturity_timestamp.date_naive(),
         total_interest_amount,

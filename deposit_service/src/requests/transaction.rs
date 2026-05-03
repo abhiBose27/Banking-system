@@ -6,7 +6,7 @@ use uuid::Uuid;
 use object::interfaces::{
     io::{DataKind, EventMessage, EventType, ServiceType}, 
     service_job::ServiceJob, 
-    transaction::{TransactionRequest, TransactionResponse}
+    transaction::{TransactionRequest, TransactionDetail}
 };
 
 
@@ -14,7 +14,7 @@ pub async fn make_transaction(
     tx_dealer: &Sender<ServiceJob>,
     transaction_request: TransactionRequest,
     session_customer_id: Option<Uuid>
-) -> Option<TransactionResponse> {
+) -> Option<TransactionDetail> {
     let (tx_job, rx_job) = oneshot::channel::<EventType>();
     let request_id = Uuid::new_v4();
     let request = EventMessage {
@@ -44,7 +44,7 @@ pub async fn make_transaction(
                             match data {
                                 Some(d) => {
                                     match d {
-                                        DataKind::CreateTransactionResponse { transaction } => Some(transaction),
+                                        DataKind::CreateTransactionResponse { transaction_detail } => Some(transaction_detail),
                                         _ => {
                                             eprintln!("Error Invalid response received");
                                             None

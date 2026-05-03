@@ -1,19 +1,27 @@
-use chrono::Utc;
 use ulid::Ulid;
 use uuid::Uuid;
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
 use object::interfaces::{
-    deposit::{DepositRequest, DepositResponse, InterestPayout}, 
+    deposit::{DepositDetail, DepositRequest, InterestPayout}, 
     io::DataKind, 
     service_job::ServiceJob, 
     transaction::TransactionRequest
 };
 
 use crate::{
-    database::deposit::{add_deposit, close_deposit as close_deposit_db, get_deposit_from_deposit_number, get_deposits_from_customer_id}, 
-    requests::{account::get_account, customer::get_customer, transaction::make_transaction}, tools::tools::{is_valid_deposit_tenure, is_valid_interest_payout}
+    database::deposit::{
+        add_deposit, 
+        close_deposit as close_deposit_db, 
+        get_deposit_from_deposit_number, 
+        get_deposits_from_customer_id
+    }, 
+    requests::{
+        account::get_account, 
+        customer::get_customer, 
+        transaction::make_transaction
+    }, utils::{deposit::{get_premature_withdrawal_amount, is_valid_deposit_tenure}, interest::is_valid_interest_payout}
 };
 
 
@@ -34,7 +42,7 @@ pub async fn get_deposits(
         eprintln!("Error: {e}");
         return (false, None, Some("Error: Invalid to fetch deposits".to_string()));
     }
-    let deposits_response = deposits_result.unwrap().into_iter().map(|deposit| DepositResponse {
+    let deposits_detail = deposits_result.unwrap().into_iter().map(|deposit| DepositDetail {
         deposit_number: deposit.deposit_number,
         linked_account_number: deposit.linked_account_number,
         principal_amount: deposit.principal_amount,
@@ -46,8 +54,8 @@ pub async fn get_deposits(
         renewed_deposit_tenure: deposit.renewed_deposit_tenure,
         creation_timestamp: deposit.creation_timestamp,
         total_interest_amount: deposit.total_interest_amount,
-    }).collect::<Vec<DepositResponse>>();
-    (true, Some(DataKind::GetDepositsResponse { deposits: deposits_response }), None)
+    }).collect::<Vec<DepositDetail>>();
+    (true, Some(DataKind::GetDepositsDetailResponse { deposits_detail }), None)
 
 }
 
@@ -68,12 +76,12 @@ pub async fn close_deposit(
         return (false, None, Some("Error: Invalid customer id".to_string()));
     }
 
-    let current_date = Utc::now().date_naive();
-    let creation_date = deposit.creation_timestamp.date_naive();
-    let days_spanned = (current_date - creation_date).num_days();
-    let premature_interest = deposit.principal_amount * (deposit.interest_rate / 100.0) * (days_spanned as f64) / 360.0;
-    let difference = premature_interest - deposit.total_interest_paid;
-    let total_to_pay = deposit.principal_amount + difference;
+    let total_to_pay = get_premature_withdrawal_amount(
+        deposit.principal_amount, 
+        deposit.interest_rate, 
+        deposit.total_interest_paid,
+        deposit.creation_timestamp, 
+    );
     
     let transaction_request = TransactionRequest {
         amount: total_to_pay,
@@ -86,9 +94,7 @@ pub async fn close_deposit(
     }
 
     match close_deposit_db(client, deposit.id).await {
-        Ok(_) => {
-            (true, Some(DataKind::CloseDepositResponse), None)
-        },
+        Ok(_) => (true, Some(DataKind::CloseDepositResponse), None),
         Err(e) => {
             eprintln!("Error: {e}");
             (false, None, Some("Error: Failed to close deposit".to_string()))
@@ -120,10 +126,10 @@ pub async fn create_deposit(
     if !is_valid_deposit_tenure(renewed_deposit_tenure.clone()) {
         return (false, None, Some("Error: Invalid renewed deposit tenure".to_string()));
     }
-    if !is_valid_interest_payout(interest_payout.clone(), Some(deposit_tenure.clone())) {
+    if !is_valid_interest_payout(&interest_payout, Some(deposit_tenure.clone())) {
         return (false, None, Some("Error: Invalid interest payout".to_string()));
     }
-    if !is_valid_interest_payout(interest_payout.clone(), renewed_deposit_tenure.clone()) {
+    if !is_valid_interest_payout(&interest_payout, renewed_deposit_tenure.clone()) {
         return (false, None, Some("Error: Invalid interest payout".to_string()));
     }
 
@@ -147,22 +153,20 @@ pub async fn create_deposit(
 
     match add_deposit(client, account.customer_id, deposit_request).await {
         Ok(deposit) => {
-            let data = Some(DataKind::CreateDepositResponse { 
-                deposit: DepositResponse {
-                    deposit_number: deposit.deposit_number,
-                    linked_account_number: deposit.linked_account_number,
-                    principal_amount: deposit.principal_amount,
-                    interest_rate: deposit.interest_rate,
-                    interest_payout: deposit.interest_payout,
-                    auto_renewal: deposit.auto_renewal,
-                    maturity_date: deposit.maturity_date,
-                    deposit_tenure: deposit.deposit_tenure,
-                    renewed_deposit_tenure: deposit.renewed_deposit_tenure,
-                    creation_timestamp: deposit.creation_timestamp,
-                    total_interest_amount: deposit.total_interest_amount,
-                } 
-            });
-            (true, data, None)
+            let deposit_detail = DepositDetail {
+                deposit_number: deposit.deposit_number,
+                linked_account_number: deposit.linked_account_number,
+                principal_amount: deposit.principal_amount,
+                interest_rate: deposit.interest_rate,
+                interest_payout: deposit.interest_payout,
+                auto_renewal: deposit.auto_renewal,
+                maturity_date: deposit.maturity_date,
+                deposit_tenure: deposit.deposit_tenure,
+                renewed_deposit_tenure: deposit.renewed_deposit_tenure,
+                creation_timestamp: deposit.creation_timestamp,
+                total_interest_amount: deposit.total_interest_amount,
+            };
+            (true, Some(DataKind::CreateDepositResponse { deposit_detail }), None)
         },
         Err(e) => {
             eprintln!("Error: {e}");

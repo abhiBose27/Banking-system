@@ -3,7 +3,7 @@ use anyhow::Result;
 use chrono::{DateTime, TimeZone, Utc};
 
 use object::interfaces::{
-    statement::{StatementResponse, StatementRequest}, 
+    statement::{StatementDetail, StatementRequest}, 
     transaction::TransactionType
 };
 use ulid::Ulid;
@@ -13,7 +13,7 @@ pub async fn get_statement_db(
     client: &Client,
     statement_request: StatementRequest,
     account_number: String
-) -> Result<Vec<StatementResponse>> {
+) -> Result<Vec<StatementDetail>> {
     let db_response = match (statement_request.from_date, statement_request.to_date) {
         (None, None) => {
             let rows = client.query("SELECT * FROM transaction WHERE from_acc = $1 OR to_acc = $2 ORDER BY transaction_timestamp DESC LIMIT 10",
@@ -56,7 +56,7 @@ pub async fn get_statement_db(
             else { TransactionType::Credit }
         } else { TransactionType::Credit };
 
-        StatementResponse {
+        StatementDetail {
             date: ts.date_naive(),
             from_account_number: from_acc.clone(),
             to_account_number: to_acc.clone(),
@@ -65,7 +65,6 @@ pub async fn get_statement_db(
             amount,
         }
 
-    }).collect::<Vec<StatementResponse>>();
-
+    }).collect::<Vec<StatementDetail>>();
     Ok(statement)
 }

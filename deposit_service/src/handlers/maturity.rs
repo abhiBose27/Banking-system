@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::Sender;
 use tokio_postgres::Client;
 
-use object::interfaces::{deposit::{DepositRequest, DepositResponse}, service_job::ServiceJob, transaction::{TransactionRequest}};
+use object::interfaces::{deposit::{DepositRequest, DepositDetail}, service_job::ServiceJob, transaction::{TransactionRequest}};
 
 use crate::{
     database::{
@@ -35,7 +35,6 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         if !deposit.auto_renewal {
             continue;
         }
-
         // Renewed deposit request
         let new_deposit_request = DepositRequest {
             linked_account_number: deposit.linked_account_number,
@@ -59,7 +58,7 @@ pub async fn process_maturity(client: &Client, tx_dealer: &Sender<ServiceJob>) {
         // Add deposit to DB
         match add_deposit(client, deposit.customer_id, new_deposit_request).await {
             Ok(new_deposit) => {
-                let deposit_response = DepositResponse {
+                let deposit_response = DepositDetail {
                     deposit_number: new_deposit.deposit_number,
                     linked_account_number: new_deposit.linked_account_number,
                     principal_amount: new_deposit.principal_amount,

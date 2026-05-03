@@ -73,7 +73,7 @@ impl Service {
             DataKind::CloseDeposit { deposit_number } => {
                 close_deposit(client, tx_dealer, deposit_number, session_customer_id).await
             },
-            DataKind::GetDeposits { customer_reference_id } => {
+            DataKind::GetDepositsDetail { customer_reference_id } => {
                 get_deposits(client, tx_dealer, customer_reference_id, session_customer_id).await
             }
             _  => panic!("Error: Invalid request received on Deposit Service")

@@ -66,7 +66,7 @@ impl Service {
             DataKind::CreateTransaction { transaction_request } => {
                 make_transaction(&client, tx_dealer, session_customer_id, transaction_request).await
             },
-            DataKind::GetStatement { statement_request, account_number } => {
+            DataKind::GetStatementDetail { statement_request, account_number } => {
                 get_statement(&client, tx_dealer, session_customer_id, statement_request, account_number).await
             }
             _  => panic!("Error: Invalid request received Transaction Service")
