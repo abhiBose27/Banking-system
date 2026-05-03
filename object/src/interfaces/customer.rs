@@ -38,7 +38,7 @@ pub struct Customer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CustomerResponse {
+pub struct CustomerDetail {
     pub customer_reference_id: Ulid,
     pub first_name: String,
     pub last_name: String,

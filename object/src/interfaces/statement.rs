@@ -12,7 +12,7 @@ pub struct StatementRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatementResponse {
+pub struct StatementDetail {
     pub date: NaiveDate,
     pub amount: f64,
     pub reference_id: Ulid,

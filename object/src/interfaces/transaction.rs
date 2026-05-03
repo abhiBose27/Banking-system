@@ -28,7 +28,7 @@ pub struct Transaction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransactionResponse {
+pub struct TransactionDetail {
     pub reference_id: Ulid,
     pub amount: f64,
     pub from_account_number: Option<String>,

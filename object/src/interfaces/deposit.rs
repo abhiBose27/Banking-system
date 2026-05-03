@@ -55,7 +55,7 @@ pub struct Deposit {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DepositResponse {
+pub struct DepositDetail {
     pub deposit_number: String,
     pub linked_account_number: String,
     pub principal_amount: f64,
