@@ -12,7 +12,7 @@ use object::interfaces::{
 };
 
 use crate::{
-    handlers::{deposit::{close_deposit, create_deposit, get_deposits}, 
+    handlers::{deposit::{close_deposit, create_deposit, get_deposit, get_deposits}, 
     interest::process_interests, maturity::process_maturity}, 
     interfaces::service::Service
 };
@@ -75,6 +75,9 @@ impl Service {
             },
             DataKind::GetDepositsDetail { customer_reference_id } => {
                 get_deposits(client, tx_dealer, customer_reference_id, session_customer_id).await
+            },
+            DataKind::GetDepositDetail { deposit_number } => {
+                get_deposit(client, deposit_number, session_customer_id).await
             }
             _  => panic!("Error: Invalid request received on Deposit Service")
         };

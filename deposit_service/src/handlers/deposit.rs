@@ -24,6 +24,36 @@ use crate::{
     }, utils::{deposit::{get_premature_withdrawal_amount, is_valid_deposit_tenure}, interest::is_valid_interest_payout}
 };
 
+pub async fn get_deposit(
+    client: &Client,
+    deposit_number: String,
+    session_customer_id: Option<Uuid>
+) -> (bool, Option<DataKind>, Option<String>) {
+    let deposit_result = get_deposit_from_deposit_number(client, deposit_number).await;
+    if let Err(e) = deposit_result {
+        eprintln!("Error: {e}");
+        return (false, None, Some("Error: Invalid deposit_number".to_string()));
+    }
+
+    let deposit = deposit_result.unwrap();
+    if session_customer_id.is_some() && deposit.customer_id != session_customer_id.unwrap() {
+        return (false, None, Some("Error: Invalid customer id".to_string()));
+    }
+    let deposit_detail = DepositDetail {
+        deposit_number: deposit.deposit_number,
+        linked_account_number: deposit.linked_account_number,
+        principal_amount: deposit.principal_amount,
+        interest_rate: deposit.interest_rate,
+        deposit_tenure: deposit.deposit_tenure,
+        interest_payout: deposit.interest_payout,
+        total_interest_amount: deposit.total_interest_amount,
+        auto_renewal: deposit.auto_renewal,
+        renewed_deposit_tenure: deposit.renewed_deposit_tenure,
+        maturity_date: deposit.maturity_date,
+        creation_timestamp: deposit.creation_timestamp,
+    };
+    (true, Some(DataKind::GetDepositDetailResponse { deposit_detail }), None)
+}
 
 pub async fn get_deposits(
     client: &Client,
@@ -35,9 +65,8 @@ pub async fn get_deposits(
     if let None = customer_result {
         return (false, None, Some("Error: Invalid parameters".to_string()));
     }
-    let customer = customer_result.unwrap();
-    let deposits_result = get_deposits_from_customer_id(client, customer.id).await;
     
+    let deposits_result = get_deposits_from_customer_id(client, customer_result.unwrap().id).await;
     if let Err(e) = deposits_result {
         eprintln!("Error: {e}");
         return (false, None, Some("Error: Invalid to fetch deposits".to_string()));
@@ -108,6 +137,12 @@ pub async fn create_deposit(
     deposit_request: DepositRequest,
     session_customer_id: Option<Uuid>
 ) -> (bool, Option<DataKind>, Option<String>) {
+    // Get the customer id from linked account number
+    let account_result = get_account(tx_dealer, deposit_request.linked_account_number.clone(), session_customer_id).await;
+    if let None = account_result {
+        return (false, None, Some("Error: Cannot fetch account details".to_string()));
+    }
+
     let deposit_request_clone = deposit_request.clone();
     let deposit_tenure = deposit_request_clone.deposit_tenure;
     let interest_payout = deposit_request_clone.interest_payout;
@@ -133,13 +168,6 @@ pub async fn create_deposit(
         return (false, None, Some("Error: Invalid interest payout".to_string()));
     }
 
-    // Get the customer id from linked account number
-    let account_result = get_account(tx_dealer, deposit_request.linked_account_number.clone(), session_customer_id).await;
-    if let None = account_result {
-        return (false, None, Some("Error: Cannot fetch account details".to_string()));
-    }
-    let account = account_result.unwrap();
-
     // Make the required transaction
     let transaction_request = TransactionRequest {
         amount: deposit_request.principal_amount.clone(),
@@ -151,7 +179,7 @@ pub async fn create_deposit(
         return (false, None, Some("Error: Cannot make transaction".to_string()));
     }
 
-    match add_deposit(client, account.customer_id, deposit_request).await {
+    match add_deposit(client, account_result.unwrap().customer_id, deposit_request).await {
         Ok(deposit) => {
             let deposit_detail = DepositDetail {
                 deposit_number: deposit.deposit_number,
